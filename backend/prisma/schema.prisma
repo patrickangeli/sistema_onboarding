@@ -1,0 +1,93 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para limitar os tipos de input no Frontend
+enum QuestionType {
+  TEXT
+  NUMBER
+  DATE
+  FILE
+  SELECT // Dropdown
+  CHECKBOX
+}
+
+model OnboardingProcess {
+  id          String   @id @default(uuid())
+  title       String   // Ex: "Admissão TI"
+  description String?
+  createdAt   DateTime @default(now())
+  
+  phases      Phase[]
+}
+
+model Phase {
+  id          String   @id @default(uuid())
+  title       String   // Ex: "Documentação"
+  order       Int      // Para ordenar as abas no Front (1, 2, 3...)
+  processId   String
+  process     OnboardingProcess @relation(fields: [processId], references: [id])
+  
+  questions   Question[]
+  employees   Employee[] // Colaboradores que estão PARADOS nesta fase
+
+  @@unique([processId, order]) // Evita duas fases com mesma ordem no mesmo processo
+}
+
+model Question {
+  id          String       @id @default(uuid())
+  label       String       // Ex: "Qual seu tamanho de camiseta?"
+  type        QuestionType
+  required    Boolean      @default(false) // Validação básica
+  order       Int          // Ordem da pergunta dentro da fase
+  
+  phaseId     String
+  phase       Phase        @relation(fields: [phaseId], references: [id])
+  
+  options     QuestionOption[] // Se for SELECT ou CHECKBOX, busca aqui as opções
+  answers     Answer[]
+}
+
+// Tabela nova: Necessária para inputs dinâmicos do tipo Select/Radio
+model QuestionOption {
+  id          String   @id @default(uuid())
+  label       String   // Ex: "Tamanho M", "Tamanho G"
+  value       String   // Valor que será salvo no banco
+  order       Int      // Ordem visual no dropdown
+  
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id])
+}
+
+model Employee {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  cpf            String?  @unique // Dado sensível, útil para login/busca
+  createdAt      DateTime @default(now())
+  
+  currentPhaseId String
+  currentPhase   Phase    @relation(fields: [currentPhaseId], references: [id])
+  
+  answers        Answer[]
+}
+
+model Answer {
+  id          String   @id @default(uuid())
+  value       String   // Armazena texto, número ou URL do arquivo (upload)
+  
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id])
+
+  @@unique([employeeId, questionId]) // Um funcionário só responde uma vez cada pergunta
+}
