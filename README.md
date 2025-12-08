@@ -6,18 +6,18 @@ Você pode copiar esse conteúdo, colar em um arquivo `README.md` no seu projeto
 
 # 🚀 Projeto Onboarding: Cronograma de Desenvolvimento
 
-**Responsável:** [Seu Nome] [cite: 3]
-**Meta:** Criar uma plataforma onde o Frontend renderiza formulários dinamicamente baseados em regras do Backend (JSON)[cite: 6, 7, 8].
+**Responsável:** [Seu Nome]
+**Meta:** Criar uma plataforma onde o Frontend renderiza formulários dinamicamente baseados em regras do Backend (JSON).
 
 -----
 
 ## 📅 Semana 1: O "Esqueleto" Funcional (08/12 - 12/12)
 
-**Objetivo:** Até sexta-feira, um candidato consegue salvar dados e arquivos no banco[cite: 52, 53].
+**Objetivo:** Até sexta-feira, um candidato consegue salvar dados e arquivos no banco.
 
 ### ✅ Segunda-feira (08/12): Fundação & Banco de Dados
 
-**Foco:** Modelagem DB (Prisma) + Migrations[cite: 54].
+**Foco:** Modelagem DB (Prisma) + Migrations.
 
   - [x] Configurar ambiente Node.js e TypeScript.
   - [x] Instalar PostgreSQL e configurar `.env`.
@@ -47,7 +47,7 @@ A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacio
 
 ### 🚧 Terça-feira (09/12): Dados Básicos (API & Renderização)
 
-**Foco:** Conexão Front-Back e renderização dinâmica[cite: 54].
+**Foco:** Conexão Front-Back e renderização dinâmica.
 
   - [ ] **Backend:** Criar Rota `GET /process/:id/phases` (Retorna o JSON da estrutura).
   - [ ] **Backend:** Criar Rota `POST /employee` (Cria o candidato inicial).
@@ -74,7 +74,7 @@ A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacio
 
 ### 📅 Quarta-feira (10/12): Uploads (A Parte Crítica)
 
-**Foco:** Configurar Multer e Input de Arquivos[cite: 54].
+**Foco:** Configurar Multer e Input de Arquivos
 
   - [ ] **Backend:** Configurar Middleware Multer.
   - [ ] **Backend:** Criar Rota `POST /upload` (Salva na pasta `/uploads` e retorna URL).
@@ -93,7 +93,7 @@ import multer from 'multer';
 
 ### 📅 Quinta-feira (11/12): Motor de Regras
 
-**Foco:** Lógica de Transição de Fases[cite: 54].
+**Foco:** Lógica de Transição de Fases.
 
   - [ ] **Backend:** Criar Rota `POST /next-step`.
   - [ ] **Backend:** Validar campos obrigatórios (`required: true`) antes de permitir avanço.
@@ -113,11 +113,11 @@ if (question.required && !answer.value) {
 
 ### 📅 Sexta-feira (12/12): Deploy Alpha (VPS)
 
-**Foco:** Configurar ambiente de produção[cite: 54].
+**Foco:** Configurar ambiente de produção.
 
   - [ ] Contratar/Configurar VPS (OVH/DigitalOcean).
   - [ ] Instalar Docker ou Node/Postgres/Nginx manualmente na VPS.
-  - [ ] Configurar **Nginx** como Proxy Reverso (Porta 80 -\> 3000/Backend e 80 -\> Estáticos/Frontend)[cite: 39].
+  - [ ] Configurar **Nginx** como Proxy Reverso (Porta 80 -\> 3000/Backend e 80 -\> Estáticos/Frontend).
   - [ ] Rodar Build do React (`npm run build`).
 
 **Entregável:** Link acessível publicamente onde é possível cadastrar um usuário.
@@ -137,18 +137,18 @@ server {
 
 ## 📅 Semana 2: Interface de Gestão e Entrega (15/12 - 19/12)
 
-**Objetivo:** Interface do RH e Polimento final[cite: 56, 57].
+**Objetivo:** Interface do RH e Polimento final.
 
 ### 📅 Segunda-feira (15/12): Admin View
 
-**Foco:** Listagem de Candidatos[cite: 58].
+**Foco:** Listagem de Candidatos.
 
   - [ ] **Backend:** Rota `GET /admin/employees` (Retorna lista com fase atual).
   - [ ] **Frontend:** Criar Dashboard do RH (Tabela simples).
 
 ### 📅 Terça-feira (16/12): Detalhes & Aprovação
 
-**Foco:** Visualizar respostas e arquivos[cite: 58].
+**Foco:** Visualizar respostas e arquivos.
 
   - [ ] **Frontend:** Tela de Detalhes (Clicar no nome -\> Ver respostas).
   - [ ] **Backend:** Rotas de Ação (`POST /approve`, `POST /reject`).
@@ -156,14 +156,14 @@ server {
 
 ### 📅 Quarta-feira (17/12): Segurança
 
-**Foco:** Proteger a área administrativa[cite: 58].
+**Foco:** Proteger a área administrativa.
 
   - [ ] Implementar Login simples (Hardcoded ou tabela `AdminUser`).
   - [ ] Middleware de proteção nas rotas `/admin`.
 
 ### 📅 Quinta-feira (18/12): Polimento
 
-**Foco:** UX e UI[cite: 58].
+**Foco:** UX e UI.
 
   - [ ] Adicionar Loadings (Skeleton screens).
   - [ ] Toasts de Sucesso/Erro (ex: "Salvo com sucesso").
@@ -171,7 +171,7 @@ server {
 
 ### 🏁 Sexta-feira (19/12): Entrega Final
 
-**Foco:** Testes e Documentação[cite: 58].
+**Foco:** Testes e Documentação.
 
   - [ ] Teste Ponta a Ponta (Do cadastro à aprovação).
   - [ ] Escrever README.md com instruções de como rodar.
