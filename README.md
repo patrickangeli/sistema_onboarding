@@ -37,6 +37,12 @@ model Question {
 }
 ```
 
+## Modelagem de Dados (MER)
+
+A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacional planejada para suportar formulários dinâmicos:
+
+![Diagrama Entidade Relacionamento](./Diagrama_ER.png)
+
 -----
 
 ### 🚧 Terça-feira (09/12): Dados Básicos (API & Renderização)
