@@ -47,10 +47,10 @@ A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacio
 
 **Foco:** Conexão Front-Back e renderização dinâmica.
 
-  - [ ] **Backend:** Criar Rota `GET /process/:id/phases` (Retorna o JSON da estrutura).
-  - [ ] **Backend:** Criar Rota `POST /employee` (Cria o candidato inicial).
-  - [ ] **Frontend:** Configurar Axios e React Query.
-  - [ ] **Frontend:** Criar componente `DynamicInput` (Switch case que renderiza Input ou Select).
+  - [X] **Backend:** Criar Rota `GET /process/:id/phases` (Retorna o JSON da estrutura).
+  - [X] **Backend:** Criar Rota `POST /employee` (Cria o candidato inicial).
+  - [X] **Frontend:** Configurar Axios e React Query.
+  - [X] **Frontend:** Criar componente `DynamicInput` (Switch case que renderiza Input ou Select).
 
 **Entregável:** Tela inicial que "desenha" os inputs baseados no que vem do banco.
 
