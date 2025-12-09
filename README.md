@@ -1,6 +1,4 @@
-Aqui está o cronograma detalhado do seu projeto **Sistema de Admissão Dinâmico**, formatado em Markdown.
 
-Você pode copiar esse conteúdo, colar em um arquivo `README.md` no seu projeto ou usar em ferramentas como Notion/Obsidian para acompanhar seu progresso. Adicionei blocos de código vazios ou com estruturas básicas para você preencher conforme avança.
 
 -----
 
