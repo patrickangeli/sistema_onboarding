@@ -81,13 +81,20 @@ model Employee {
 
 model Answer {
   id          String   @id @default(uuid())
-  value       String   // Armazena texto, número ou URL do arquivo (upload)
   
+  // Se for texto, usa esse:
+  value       String?  
+
+  // Se for arquivo, usa esses:
+  fileData    Bytes?   // O arquivo em si (salvo como Blob/Bytea)
+  fileName    String?  // Ex: "rg_frente.jpg"
+  mimeType    String?  // Ex: "image/jpeg" (Importante para o navegador saber abrir depois)
+
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
   
   questionId  String
   question    Question @relation(fields: [questionId], references: [id])
 
-  @@unique([employeeId, questionId]) // Um funcionário só responde uma vez cada pergunta
+  @@unique([employeeId, questionId]) // Evita respostas duplicadas
 }
