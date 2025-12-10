@@ -31,7 +31,7 @@ graph LR
 
 ```
 ### RH
-``` mermaid
+```mermaid
 
 graph LR
     %% Estilos
@@ -57,7 +57,8 @@ graph LR
     class Start,End startend;
     class Step1,Step2,Step3,Step4,Step6,Step7,Step8 process;
     class Step5 decision;
-´´´´ 
+
+´´´ 
 -----
 
 ## Semana 1: O "Esqueleto" Funcional (08/12 - 12/12)
