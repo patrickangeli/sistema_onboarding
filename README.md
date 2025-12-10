@@ -2,18 +2,44 @@
 
 -----
 
-# 🚀 Projeto Onboarding: Cronograma de Desenvolvimento
+# Projeto Onboarding: Cronograma de Desenvolvimento
 
-**Responsável:** [Seu Nome]
 **Meta:** Criar uma plataforma onde o Frontend renderiza formulários dinamicamente baseados em regras do Backend (JSON).
 
 -----
+## Jornada do Usuário
 
-## 📅 Semana 1: O "Esqueleto" Funcional (08/12 - 12/12)
+```mermaid
+
+graph RL
+    %% Estilos (Cores da imagem enviada)
+    classDef startend fill:#b9f6ca,stroke:#00c853,stroke-width:2px,color:#000,rx:10,ry:10;
+    classDef process fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000;
+
+    %% Nós do Fluxo do Candidato
+    Start(Início: Recebe Email) --> Step1[Acessa Link Único]
+    Step1 --> Step2[Visualiza Fases do Processo]
+    Step2 --> Step3[Preenche Dados Cadastrais]
+    Step3 --> Step4[Realiza Upload de Documentos]
+    Step4 --> Step5[Revisa Informações]
+    Step5 --> Step6[Clica em 'Enviar para Análise']
+    Step6 --> End(Fim: Aguarda Aprovação)
+
+    %% Aplicando as cores
+    class Start,End startend;
+    class Step1,Step2,Step3,Step4,Step5,Step6 process;
+
+```
+
+
+
+-----
+
+## Semana 1: O "Esqueleto" Funcional (08/12 - 12/12)
 
 **Objetivo:** Até sexta-feira, um candidato consegue salvar dados e arquivos no banco.
 
-### ✅ Segunda-feira (08/12): Fundação & Banco de Dados
+### Segunda-feira (08/12): Fundação & Banco de Dados
 
 **Foco:** Modelagem DB (Prisma) + Migrations.
 
@@ -43,7 +69,7 @@ A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacio
 
 -----
 
-### 🚧 Terça-feira (09/12): Dados Básicos (API & Renderização)
+### Terça-feira (09/12): Dados Básicos (API & Renderização)
 
 **Foco:** Conexão Front-Back e renderização dinâmica.
 
@@ -70,7 +96,7 @@ A inteligência do sistema reside no banco de dados. Abaixo, a estrutura relacio
 
 -----
 
-### 📅 Quarta-feira (10/12): Uploads (A Parte Crítica)
+### Quarta-feira (10/12): Uploads (A Parte Crítica)
 
 **Foco:** Configurar Multer e Input de Arquivos
 
@@ -89,7 +115,7 @@ import multer from 'multer';
 
 -----
 
-### 📅 Quinta-feira (11/12): Motor de Regras
+### Quinta-feira (11/12): Motor de Regras
 
 **Foco:** Lógica de Transição de Fases.
 
@@ -109,7 +135,7 @@ if (question.required && !answer.value) {
 
 -----
 
-### 📅 Sexta-feira (12/12): Deploy Alpha (VPS)
+### Sexta-feira (12/12): Deploy Alpha (VPS)
 
 **Foco:** Configurar ambiente de produção.
 
@@ -133,18 +159,18 @@ server {
 
 -----
 
-## 📅 Semana 2: Interface de Gestão e Entrega (15/12 - 19/12)
+## Semana 2: Interface de Gestão e Entrega (15/12 - 19/12)
 
 **Objetivo:** Interface do RH e Polimento final.
 
-### 📅 Segunda-feira (15/12): Admin View
+### Segunda-feira (15/12): Admin View
 
 **Foco:** Listagem de Candidatos.
 
   - [ ] **Backend:** Rota `GET /admin/employees` (Retorna lista com fase atual).
   - [ ] **Frontend:** Criar Dashboard do RH (Tabela simples).
 
-### 📅 Terça-feira (16/12): Detalhes & Aprovação
+### Terça-feira (16/12): Detalhes & Aprovação
 
 **Foco:** Visualizar respostas e arquivos.
 
@@ -152,14 +178,14 @@ server {
   - [ ] **Backend:** Rotas de Ação (`POST /approve`, `POST /reject`).
   - [ ] **Frontend:** Botões de Aprovar (Avança fase) ou Reprovar (Volta fase/Comentário).
 
-### 📅 Quarta-feira (17/12): Segurança
+### Quarta-feira (17/12): Segurança
 
 **Foco:** Proteger a área administrativa.
 
   - [ ] Implementar Login simples (Hardcoded ou tabela `AdminUser`).
   - [ ] Middleware de proteção nas rotas `/admin`.
 
-### 📅 Quinta-feira (18/12): Polimento
+### Quinta-feira (18/12): Polimento
 
 **Foco:** UX e UI.
 
@@ -167,7 +193,7 @@ server {
   - [ ] Toasts de Sucesso/Erro (ex: "Salvo com sucesso").
   - [ ] Melhorar CSS (Tailwind) dos formulários.
 
-### 🏁 Sexta-feira (19/12): Entrega Final
+### Sexta-feira (19/12): Entrega Final
 
 **Foco:** Testes e Documentação.
 
