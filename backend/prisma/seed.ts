@@ -10,10 +10,10 @@ async function main() {
   await prisma.document.deleteMany()
   await prisma.address.deleteMany()
   await prisma.answer.deleteMany()
+  await prisma.employee.deleteMany() // Moved up
   await prisma.option.deleteMany()  // Agora chama Option, não QuestionOption
   await prisma.question.deleteMany()
   await prisma.phase.deleteMany()
-  await prisma.employee.deleteMany()
   await prisma.onboardingProcess.deleteMany()
 
   console.log("Banco limpo!")
@@ -60,6 +60,7 @@ async function main() {
             }
           },
           // FASE 3: SETUP TI (Interno)
+          /*
           {
             title: 'Setup de Acessos',
             order: 3,
@@ -71,6 +72,7 @@ async function main() {
               ]
             }
           }
+          */
         ]
       }
     }

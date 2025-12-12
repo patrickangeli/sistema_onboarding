@@ -79,6 +79,76 @@ app.get('/file/:answerId', async (req, res) => {
   }
 });
 
+app.get('/employees', async (req, res) => {
+  try {
+    const employees = await prisma.employee.findMany({
+      include: {
+        currentPhase: true // Traz os dados da fase (título) também
+      },
+      orderBy: {
+        createdAt: 'desc' // Os mais recentes primeiro
+      }
+    });
+    return res.json(employees);
+  } catch (error) {
+    return res.status(500).json({ error: "Erro ao buscar lista de candidatos." });
+  }
+});
+
+// NOVO: Detalhes Completos do Candidato (Para o RH)
+app.get('/employee/:id/details', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: {
+        address: true, // Endereço
+        currentPhase: true, // Fase atual
+        answers: {
+          include: {
+            question: true, // Para saber qual pergunta foi respondida
+            document: {     // Se tiver arquivo, traz metadados
+               select: { id: true, fileName: true, mimeType: true } // Não traz o binário pesado
+            }
+          }
+        }
+      }
+    });
+
+    if (!employee) return res.status(404).json({ error: "Candidato não encontrado" });
+    return res.json(employee);
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao buscar detalhes do candidato." });
+  }
+});
+
+// NOVO: Checar CPF (Retorna ID se existir)
+app.get('/employee/check-cpf/:cpf', async (req, res) => {
+  const { cpf } = req.params;
+  const cpfLimpo = cpf.replace(/\D/g, '');
+  console.log(`[CHECK-CPF] Recebido: ${cpf} | Limpo: ${cpfLimpo}`);
+
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { cpf: cpfLimpo },
+      select: { id: true }
+    });
+
+    if (!employee) {
+        console.log(`[CHECK-CPF] Não encontrado: ${cpfLimpo}`);
+        return res.status(404).json({ error: "CPF não encontrado" });
+    }
+    
+    console.log(`[CHECK-CPF] Encontrado ID: ${employee.id}`);
+    return res.json(employee);
+  } catch (error) {
+    console.error(`[CHECK-CPF] Erro:`, error);
+    return res.status(500).json({ error: "Erro ao verificar CPF" });
+  }
+});
+
 // ---------------------------------------------------------
 // ROTAS DE CADASTRO E RESPOSTAS (POST)
 // ---------------------------------------------------------
@@ -90,6 +160,7 @@ app.post('/employee', async (req, res) => {
   try {
     // Limpeza e Validação de Duplicidade
     const cpfLimpo = cpf.replace(/\D/g, '');
+    console.log(`[REGISTER] Tentativa de cadastro CPF: ${cpf} | Limpo: ${cpfLimpo}`);
 
     const existingEmployee = await prisma.employee.findUnique({
       where: { cpf: cpfLimpo }
