@@ -1,4 +1,4 @@
-// schema.prisma
+// backend/prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -9,95 +9,99 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enum para limitar os tipos de input no Frontend
-enum QuestionType {
-  TEXT
-  NUMBER
-  DATE
-  FILE
-  SELECT // Dropdown
-  CHECKBOX
-}
-
 model OnboardingProcess {
   id          String   @id @default(uuid())
-  title       String   // Ex: "Admissão TI"
-  description String?
-  createdAt   DateTime @default(now())
-  
+  title       String
+  description String
   phases      Phase[]
+  createdAt   DateTime @default(now())
 }
 
 model Phase {
-  id          String   @id @default(uuid())
-  title       String   // Ex: "Documentação"
-  order       Int      // Para ordenar as abas no Front (1, 2, 3...)
-  processId   String
-  process     OnboardingProcess @relation(fields: [processId], references: [id])
-  
-  questions   Question[]
-  employees   Employee[] // Colaboradores que estão PARADOS nesta fase
-
-  @@unique([processId, order]) // Evita duas fases com mesma ordem no mesmo processo
+  id        String     @id @default(uuid())
+  title     String
+  order     Int
+  processId String
+  process   OnboardingProcess @relation(fields: [processId], references: [id])
+  questions Question[]
+  employees Employee[] // Relação para saber em qual fase o funcionário está
 }
 
 model Question {
-  id          String       @id @default(uuid())
-  label       String       // Ex: "Qual seu tamanho de camiseta?"
-  type        QuestionType
-  required    Boolean      @default(false) // Validação básica
-  order       Int          // Ordem da pergunta dentro da fase
-  
-  phaseId     String
-  phase       Phase        @relation(fields: [phaseId], references: [id])
-  
-  options     QuestionOption[] // Se for SELECT ou CHECKBOX, busca aqui as opções
-  answers     Answer[]
+  id        String   @id @default(uuid())
+  label     String
+  type      String   // TEXT, DATE, SELECT, FILE
+  required  Boolean  @default(false)
+  order     Int
+  options   Option[]
+  phaseId   String
+  phase     Phase    @relation(fields: [phaseId], references: [id])
+  answers   Answer[]
 }
 
-// Tabela nova: Necessária para inputs dinâmicos do tipo Select/Radio
-model QuestionOption {
-  id          String   @id @default(uuid())
-  label       String   // Ex: "Tamanho M", "Tamanho G"
-  value       String   // Valor que será salvo no banco
-  order       Int      // Ordem visual no dropdown
-  
-  questionId  String
-  question    Question @relation(fields: [questionId], references: [id])
+model Option {
+  id         String   @id @default(uuid())
+  label      String
+  value      String
+  order      Int
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
 }
 
+// --- TABELA 1: FUNCIONÁRIO (Somente Identificação) ---
 model Employee {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   name           String
-  email          String   @unique
-  cpf            String?  @unique
-  createdAt      DateTime @default(now())
+  email          String    @unique
+  cpf            String    @unique
+  createdAt      DateTime  @default(now())
   
-  // --- NOVOS CAMPOS DE ENDEREÇO ---
-  cep            String?
-  street         String?  // Logradouro
-  number         String?
-  complement     String?
-  neighborhood   String?  // Bairro
-  city           String?
-  state          String?
-  // -------------------------------
-
   currentPhaseId String
-  currentPhase   Phase    @relation(fields: [currentPhaseId], references: [id])
+  currentPhase   Phase     @relation(fields: [currentPhaseId], references: [id])
+  
+  // Relações (Chaves Estrangeiras)
+  address        Address?  // 1 Funcionário tem 1 Endereço (Opcional no cadastro inicial)
+  documents      Document[] // 1 Funcionário tem Vários Documentos
   answers        Answer[]
+}
+
+// --- TABELA 2: ENDEREÇO (Separado conforme BCNF) ---
+model Address {
+  id           String   @id @default(uuid())
+  cep          String
+  street       String
+  number       String
+  complement   String?
+  neighborhood String
+  city         String
+  state        String
+  
+  employeeId   String   @unique // @unique garante relação 1:1
+  employee     Employee @relation(fields: [employeeId], references: [id])
+}
+
+// --- TABELA 3: DOCUMENTOS/IMAGENS (Separado para não pesar) ---
+model Document {
+  id          String   @id @default(uuid())
+  fileName    String
+  mimeType    String
+  fileData    Bytes    // O binário pesado fica aqui
+  uploadedAt  DateTime @default(now())
+
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  // Opcional: Linkar com uma resposta específica do formulário
+  answerId    String?  @unique
+  answer      Answer?  @relation(fields: [answerId], references: [id])
 }
 
 model Answer {
   id          String   @id @default(uuid())
+  value       String?  // Texto ou Data
   
-  // Se for texto, usa esse:
-  value       String?  
-
-  // Se for arquivo, usa esses:
-  fileData    Bytes?   // O arquivo em si (salvo como Blob/Bytea)
-  fileName    String?  // Ex: "rg_frente.jpg"
-  mimeType    String?  // Ex: "image/jpeg" (Importante para o navegador saber abrir depois)
+  // Se for arquivo, guardamos só o link/referência, não o binário
+  document    Document?
 
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id])
@@ -105,5 +109,5 @@ model Answer {
   questionId  String
   question    Question @relation(fields: [questionId], references: [id])
 
-  @@unique([employeeId, questionId]) // Evita respostas duplicadas
+  @@unique([employeeId, questionId])
 }
