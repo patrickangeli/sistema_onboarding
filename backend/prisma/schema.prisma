@@ -70,12 +70,21 @@ model Employee {
   id             String   @id @default(uuid())
   name           String
   email          String   @unique
-  cpf            String?  @unique // Dado sensível, útil para login/busca
+  cpf            String?  @unique
   createdAt      DateTime @default(now())
   
+  // --- NOVOS CAMPOS DE ENDEREÇO ---
+  cep            String?
+  street         String?  // Logradouro
+  number         String?
+  complement     String?
+  neighborhood   String?  // Bairro
+  city           String?
+  state          String?
+  // -------------------------------
+
   currentPhaseId String
   currentPhase   Phase    @relation(fields: [currentPhaseId], references: [id])
-  
   answers        Answer[]
 }
 

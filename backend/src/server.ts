@@ -53,18 +53,85 @@ app.get('/process/:id/structure', async (req, res) => {
   }
 });
 
-// 3. Criar um novo Candidato (Inicia o processo)
-app.post('/employee', async (req, res) => {
-  const { name, email, cpf, processId } = req.body;
+// Rota de Transição de Fase (Motor de Regras)
+app.post('/next-step', async (req, res) => {
+  const { employeeId } = req.body;
 
   try {
-    // Descobre qual é a primeira fase desse processo automaticamente
+    // 1. Busca o colaborador e sua fase atual (com as perguntas)
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        currentPhase: {
+          include: {
+            questions: true // Precisamos ver quais perguntas existem nessa fase
+          }
+        },
+        answers: true // Precisamos ver o que ele já respondeu
+      }
+    });
+
+    if (!employee) return res.status(404).json({ error: "Colaborador não encontrado" });
+
+    // 2. VALIDAÇÃO: Verifica se falta alguma resposta obrigatória
+    const currentQuestions = employee.currentPhase.questions;
+    const missingQuestions = currentQuestions.filter(question => {
+      // Se a pergunta não é obrigatória, ignora
+      if (!question.required) return false;
+
+      // Verifica se existe uma resposta para esta pergunta
+      const hasAnswer = employee.answers.some(a => a.questionId === question.id);
+      
+      // Se NÃO tem resposta, ela está faltando
+      return !hasAnswer;
+    });
+
+    // Se houver pendências, bloqueia e avisa quais são
+    if (missingQuestions.length > 0) {
+      return res.status(400).json({ 
+        error: "Existem campos obrigatórios não preenchidos.", 
+        missing: missingQuestions.map(q => q.label) 
+      });
+    }
+
+    // 3. Se passou na validação, descobre qual é a próxima fase
+    const nextPhase = await prisma.phase.findFirst({
+      where: {
+        processId: employee.currentPhase.processId,
+        order: employee.currentPhase.order + 1 // Pega a fase nº atual + 1
+      }
+    });
+
+    if (!nextPhase) {
+      return res.json({ message: "Processo Finalizado! Não há mais etapas." });
+    }
+
+    // 4. Atualiza o colaborador para a nova fase
+    await prisma.employee.update({
+      where: { id: employeeId },
+      data: { currentPhaseId: nextPhase.id }
+    });
+
+    return res.json({ message: "Fase avançada com sucesso!", nextPhaseId: nextPhase.id });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro interno no motor de regras." });
+  }
+});
+
+// 3. Criar um novo Candidato (Inicia o processo)
+app.post('/employee', async (req, res) => {
+  // Adicionamos os novos campos na desestruturação
+  const { name, email, cpf, processId, cep, street, number, complement, neighborhood, city, state } = req.body;
+
+  try {
     const firstPhase = await prisma.phase.findFirst({
       where: { processId, order: 1 }
     });
 
     if (!firstPhase) {
-      return res.status(400).json({ error: "Este processo não tem fases configuradas." });
+      return res.status(400).json({ error: "Processo sem fases configuradas." });
     }
 
     const employee = await prisma.employee.create({
@@ -72,6 +139,14 @@ app.post('/employee', async (req, res) => {
         name,
         email,
         cpf,
+        // Salvando o endereço novo
+        cep,
+        street,
+        number,
+        complement,
+        neighborhood,
+        city,
+        state,
         currentPhaseId: firstPhase.id
       }
     });
@@ -79,9 +154,10 @@ app.post('/employee', async (req, res) => {
     return res.json(employee);
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: "Erro ao criar colaborador. Verifique se o e-mail/CPF já existe." });
+    return res.status(500).json({ error: "Erro ao criar colaborador." });
   }
 });
+
 
 // 4. Salvar Resposta de Texto/Select (Sem arquivo)
 app.post('/answer/text', async (req, res) => {
