@@ -198,17 +198,33 @@ app.post('/employee/address', async (req, res) => {
   const { employeeId, cep, street, number, complement, neighborhood, city, state } = req.body;
 
   try {
-    // Cria o endereço vinculado ao funcionário
-    const address = await prisma.address.create({
-      data: {
-        employeeId,
-        cep, street, number, complement, neighborhood, city, state
-      }
+    // Cria ou Atualiza o endereço vinculado ao funcionário
+    const address = await prisma.address.upsert({
+      where: { employeeId },
+      create: { employeeId, cep, street, number, complement, neighborhood, city, state },
+      update: { cep, street, number, complement, neighborhood, city, state }
     });
     return res.json(address);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Erro ao salvar endereço." });
+  }
+});
+
+// NOVO: Salvar Feedback do RH
+app.post('/employee/:id/feedback', async (req, res) => {
+  const { id } = req.params;
+  const { feedback, corrections } = req.body;
+
+  try {
+    const employee = await prisma.employee.update({
+      where: { id },
+      data: { feedback, corrections }
+    });
+    return res.json(employee);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao salvar feedback." });
   }
 });
 

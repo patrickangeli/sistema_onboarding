@@ -6,7 +6,7 @@ import { validarCPF, mascaraCPF, mascaraCEP } from './utils/validators';
 
 
 // ⚠️ ATENÇÃO: Confirme se este ID é o mesmo do seu banco (Prisma Studio)
-const PROCESS_ID = "120a1573-2a9b-4075-a827-46451920d9b6"; 
+const PROCESS_ID = "0cf3426b-d7bd-420b-a9ce-a0c4c1212d43"; 
 
 export default function CandidateApp() {
   // Estados da Aplicação
@@ -59,6 +59,32 @@ export default function CandidateApp() {
       });
     }
   }, [process, employeeName, setValue]);
+
+  // 3. Preenche dados se for correção
+  useEffect(() => {
+    if (existingCandidate && existingCandidate.corrections?.length > 0) {
+        // Pre-fill address
+        if (existingCandidate.address?.[0]) {
+            const addr = existingCandidate.address[0];
+            setValue('cep', addr.cep);
+            setValue('street', addr.street);
+            setValue('number', addr.number);
+            setValue('complement', addr.complement);
+            setValue('neighborhood', addr.neighborhood);
+            setValue('city', addr.city);
+            setValue('state', addr.state);
+        }
+        
+        // Pre-fill answers
+        existingCandidate.answers?.forEach((ans: any) => {
+            setValue(ans.questionId, ans.value);
+        });
+        
+        // Set context for rendering
+        setEmployeeId(existingCandidate.id);
+        setEmployeeName(existingCandidate.name);
+    }
+  }, [existingCandidate, setValue]);
 
   // --- LÓGICA: BUSCA DE CEP ---
   const handleCepChange = async (e: any) => {
@@ -195,8 +221,10 @@ export default function CandidateApp() {
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-600">Carregando...</div>;
   if (!process) return <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">Erro: Processo não encontrado. Verifique o ID.</div>;
 
+  const isCorrectionMode = existingCandidate?.corrections?.length > 0;
+
   // --- MODAL DE CANDIDATO EXISTENTE ---
-  if (existingCandidate) {
+  if (existingCandidate && !isCorrectionMode) {
     return (
         <div className="min-h-screen bg-gray-100 p-8 flex items-center justify-center">
             <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg overflow-hidden">
@@ -225,6 +253,14 @@ export default function CandidateApp() {
                         <p><strong>Email:</strong> {existingCandidate.email}</p>
                         <p><strong>CPF:</strong> {existingCandidate.cpf}</p>
                     </div>
+
+                    {/* Feedback do RH */}
+                    {existingCandidate.feedback && (
+                        <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
+                            <h3 className="text-lg font-bold text-blue-800 mb-2">💬 Feedback do RH</h3>
+                            <p className="text-gray-700 whitespace-pre-wrap">{existingCandidate.feedback}</p>
+                        </div>
+                    )}
 
                     {/* Endereço */}
                     {existingCandidate.address && existingCandidate.address.length > 0 && (
@@ -406,43 +442,99 @@ export default function CandidateApp() {
                                 <input 
                                     {...register("cep", { required: true })} 
                                     onChange={handleCepChange} 
-                                    className="w-full p-2 border rounded border-blue-300 bg-blue-50 focus:bg-white transition" 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_cep') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-blue-300 bg-blue-50 focus:bg-white'
+                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_cep') ? 'bg-gray-100 text-gray-500' : ''}`}
                                     placeholder="00000-000"
                                     maxLength={9}
+                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_cep')}
                                 />
                                 {errors.cep && <span className="text-red-500 text-xs">*</span>}
                             </div>
                             
-                            {/* Campos Automáticos (Read Only) */}
+                            {/* Campos Automáticos */}
                             <div className="col-span-3">
                                 <label className="text-xs font-bold block mb-1">Rua</label>
-                                <input {...register("street")} className="w-full p-2 border rounded bg-gray-200 text-gray-600" readOnly tabIndex={-1} />
+                                <input 
+                                    {...register("street")} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_street')
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
+                                            : 'bg-gray-200 text-gray-600'
+                                    }`}
+                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_street') : true} 
+                                    tabIndex={-1} 
+                                />
                             </div>
                             
                             <div className="col-span-1">
                                 <label className="text-xs font-bold block mb-1">Número</label>
-                                <input {...register("number", { required: true })} className="w-full p-2 border rounded" />
+                                <input 
+                                    {...register("number", { required: true })} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_number')
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
+                                            : ''
+                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_number') ? 'bg-gray-100 text-gray-500' : ''}`}
+                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_number')}
+                                />
                                 {errors.number && <span className="text-red-500 text-xs">*</span>}
                             </div>
                             
                             <div className="col-span-3">
                                 <label className="text-xs font-bold block mb-1">Complemento</label>
-                                <input {...register("complement")} className="w-full p-2 border rounded" placeholder="Apto, Bloco..." />
+                                <input 
+                                    {...register("complement")} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && !existingCandidate.corrections.includes('address_complement') ? 'bg-gray-100 text-gray-500' : ''
+                                    }`} 
+                                    placeholder="Apto, Bloco..." 
+                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_complement')}
+                                />
                             </div>
                             
                             <div className="col-span-2">
                                 <label className="text-xs font-bold block mb-1">Bairro</label>
-                                <input {...register("neighborhood")} className="w-full p-2 border rounded bg-gray-200 text-gray-600" readOnly tabIndex={-1} />
+                                <input 
+                                    {...register("neighborhood")} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood')
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
+                                            : 'bg-gray-200 text-gray-600'
+                                    }`}
+                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_neighborhood') : true} 
+                                    tabIndex={-1} 
+                                />
                             </div>
                             
                             <div className="col-span-1">
                                 <label className="text-xs font-bold block mb-1">Cidade</label>
-                                <input {...register("city")} className="w-full p-2 border rounded bg-gray-200 text-gray-600" readOnly tabIndex={-1} />
+                                <input 
+                                    {...register("city")} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_city')
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
+                                            : 'bg-gray-200 text-gray-600'
+                                    }`}
+                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_city') : true} 
+                                    tabIndex={-1} 
+                                />
                             </div>
                             
                             <div className="col-span-1">
                                 <label className="text-xs font-bold block mb-1">UF</label>
-                                <input {...register("state")} className="w-full p-2 border rounded bg-gray-200 text-gray-600" readOnly tabIndex={-1} />
+                                <input 
+                                    {...register("state")} 
+                                    className={`w-full p-2 border rounded ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_city')
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
+                                            : 'bg-gray-200 text-gray-600'
+                                    }`}
+                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_city') : true} 
+                                    tabIndex={-1} 
+                                />
                             </div>
                         </div>
                     </div>
@@ -462,9 +554,11 @@ export default function CandidateApp() {
                                 name={q.id} 
                                 register={register} 
                                 options={q.options} 
-                                required={q.required} 
+                                required={q.required}
+                                readOnly={isCorrectionMode && !existingCandidate.corrections.includes(q.id)}
+                                isInvalid={isCorrectionMode && existingCandidate.corrections.includes(q.id)}
                             />
-                            {errors[q.id] && <span className="text-red-500 text-sm font-semibold">Este campo é obrigatório</span>}
+                            {errors[q.id] && <span className="text-red-500 text-sm font-semibold">{errors[q.id]?.message as string || "Campo obrigatório"}</span>}
                         </div>
                     )
                   })}

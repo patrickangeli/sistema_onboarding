@@ -1,5 +1,3 @@
-// backend/prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,34 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- ENUMS (Padronização) ---
+enum ValidationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum QuestionType {
+  TEXT
+  DATE
+  SELECT
+  FILE
+}
+
+// --- FLUXO DE ONBOARDING ---
+
 model OnboardingProcess {
   id          String   @id @default(uuid())
   title       String
   description String
-  phases      Phase[]
   createdAt   DateTime @default(now())
+  
+  phases      Phase[]
 }
 
 model Phase {
-  id        String     @id @default(uuid())
+  id        String   @id @default(uuid())
   title     String
   order     Int
+  
   processId String
-  process   OnboardingProcess @relation(fields: [processId], references: [id])
+  process   OnboardingProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  
   questions Question[]
-  employees Employee[] // Relação para saber em qual fase o funcionário está
+  employees Employee[] // Funcionários que estão atualmente nesta fase
 }
 
 model Question {
-  id        String   @id @default(uuid())
-  label     String
-  type      String   // TEXT, DATE, SELECT, FILE
-  required  Boolean  @default(false)
-  order     Int
-  options   Option[]
-  phaseId   String
-  phase     Phase    @relation(fields: [phaseId], references: [id])
-  answers   Answer[]
+  id       String       @id @default(uuid())
+  label    String
+  type     QuestionType // Usando Enum para segurança de tipos
+  required Boolean      @default(false)
+  order    Int
+  
+  phaseId  String
+  phase    Phase        @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  
+  options  Option[]
+  answers  Answer[]
 }
 
 model Option {
@@ -44,30 +63,35 @@ model Option {
   label      String
   value      String
   order      Int
+  
   questionId String
-  question   Question @relation(fields: [questionId], references: [id])
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
 
-// --- TABELA 1: FUNCIONÁRIO (Somente Identificação) ---
+// --- FUNCIONÁRIO E DADOS PESSOAIS ---
+
 model Employee {
-  id             String    @id @default(uuid())
-  name           String
-  email          String    @unique
-  cpf            String    @unique
-  createdAt      DateTime  @default(now())
-  
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  cpf       String   @unique
+  createdAt DateTime @default(now())
+
+  // Controle de progresso
   currentPhaseId String
-  currentPhase   Phase     @relation(fields: [currentPhaseId], references: [id])
-  
-  // Relações (Chaves Estrangeiras)
-  address        Address?  // 1 Funcionário tem 1 Endereço (Opcional no cadastro inicial)
-  documents      Document[] // 1 Funcionário tem Vários Documentos
-  answers        Answer[]
+  currentPhase   Phase  @relation(fields: [currentPhaseId], references: [id])
+
+  feedback       String? // Feedback do RH para o candidato
+  corrections    String[] // IDs dos campos/perguntas que precisam de correção
+
+  // Relacionamentos
+  address   Address?
+  documents Document[]
+  answers   Answer[]
 }
 
-// --- TABELA 2: ENDEREÇO (Separado conforme BCNF) ---
 model Address {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   cep          String
   street       String
   number       String
@@ -75,39 +99,62 @@ model Address {
   neighborhood String
   city         String
   state        String
-  
-  employeeId   String   @unique // @unique garante relação 1:1
-  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  employeeId   String   @unique
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
-// --- TABELA 3: DOCUMENTOS/IMAGENS (Separado para não pesar) ---
+// --- RESPOSTAS E DOCUMENTOS ---
+
 model Document {
-  id          String   @id @default(uuid())
-  fileName    String
-  mimeType    String
-  fileData    Bytes    // O binário pesado fica aqui
-  uploadedAt  DateTime @default(now())
+  id         String   @id @default(uuid())
+  fileName   String
+  mimeType   String
+  fileData   Bytes    // Armazenamento binário
+  uploadedAt DateTime @default(now())
 
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  // Opcional: Linkar com uma resposta específica do formulário
-  answerId    String?  @unique
-  answer      Answer?  @relation(fields: [answerId], references: [id])
+  // Relacionamento com a resposta (Se esse documento for uma resposta de upload)
+  answerId   String?  @unique
+  answer     Answer?  @relation(fields: [answerId], references: [id])
 }
 
 model Answer {
-  id          String   @id @default(uuid())
-  value       String?  // Texto ou Data
-  
-  // Se for arquivo, guardamos só o link/referência, não o binário
-  document    Document?
+  id    String  @id @default(uuid())
+  value String? // Texto, Data ou nulo (se for arquivo)
 
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  
-  questionId  String
-  question    Question @relation(fields: [questionId], references: [id])
+  // Se a resposta for um arquivo, o link está aqui (relação 1:1)
+  document Document?
 
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  // Histórico de validação do RH (BCNF)
+  validations Validation[]
+
+  // Garante que um funcionário só responde uma vez cada pergunta
   @@unique([employeeId, questionId])
+}
+
+// --- RH E VALIDAÇÃO (Nova Tabela) ---
+
+model Validation {
+  id         String           @id @default(uuid())
+  status     ValidationStatus @default(PENDING)
+  comment    String?          // Motivo da rejeição ou obs
+  reviewedAt DateTime         @default(now())
+
+  // ID do usuário do RH que validou (pode conectar a uma tabela User futura)
+  reviewerId String
+
+  answerId   String
+  answer     Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
+
+  @@index([answerId])
+  @@index([status])
 }

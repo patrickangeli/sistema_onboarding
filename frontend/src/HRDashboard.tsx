@@ -13,6 +13,8 @@ export function HRDashboard() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [feedback, setFeedback] = useState("");
+  const [selectedCorrections, setSelectedCorrections] = useState<string[]>([]);
 
   // Busca os dados assim que a tela abre (se estiver autenticado)
   useEffect(() => {
@@ -43,8 +45,29 @@ export function HRDashboard() {
     try {
         const res = await axios.get(`http://localhost:3000/employee/${id}/details`);
         setSelectedCandidate(res.data);
+        setFeedback(res.data.feedback || "");
+        setSelectedCorrections(res.data.corrections || []);
     } catch (error) {
         alert("Erro ao carregar detalhes do candidato.");
+    }
+  };
+
+  const toggleCorrection = (id: string) => {
+    setSelectedCorrections(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const sendFeedback = async () => {
+    if (!selectedCandidate) return;
+    try {
+        await axios.post(`http://localhost:3000/employee/${selectedCandidate.id}/feedback`, { 
+            feedback, 
+            corrections: selectedCorrections 
+        });
+        alert("Feedback enviado com sucesso!");
+    } catch (error) {
+        alert("Erro ao enviar feedback.");
     }
   };
 
@@ -120,10 +143,22 @@ export function HRDashboard() {
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📍 Endereço</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                <p><strong>Rua:</strong> {selectedCandidate.address[0].street}, {selectedCandidate.address[0].number}</p>
-                                <p><strong>Bairro:</strong> {selectedCandidate.address[0].neighborhood}</p>
-                                <p><strong>Cidade/UF:</strong> {selectedCandidate.address[0].city}/{selectedCandidate.address[0].state}</p>
-                                <p><strong>CEP:</strong> {selectedCandidate.address[0].cep}</p>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={selectedCorrections.includes('address_street')} onChange={() => toggleCorrection('address_street')} />
+                                    <p><strong>Rua:</strong> {selectedCandidate.address[0].street}, {selectedCandidate.address[0].number}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={selectedCorrections.includes('address_neighborhood')} onChange={() => toggleCorrection('address_neighborhood')} />
+                                    <p><strong>Bairro:</strong> {selectedCandidate.address[0].neighborhood}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={selectedCorrections.includes('address_city')} onChange={() => toggleCorrection('address_city')} />
+                                    <p><strong>Cidade/UF:</strong> {selectedCandidate.address[0].city}/{selectedCandidate.address[0].state}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input type="checkbox" checked={selectedCorrections.includes('address_cep')} onChange={() => toggleCorrection('address_cep')} />
+                                    <p><strong>CEP:</strong> {selectedCandidate.address[0].cep}</p>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -136,32 +171,64 @@ export function HRDashboard() {
                         ) : (
                             <div className="space-y-4">
                                 {selectedCandidate.answers.map((ans: any) => (
-                                    <div key={ans.id} className="bg-gray-50 p-4 rounded border border-gray-200">
-                                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                                            {ans.question?.label || "Pergunta Removida"}
-                                        </p>
-                                        
-                                        {ans.value === 'ARQUIVO' && ans.document ? (
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-2xl">📄</span>
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{ans.document.fileName}</p>
-                                                    <a 
-                                                        href={`http://localhost:3000/file/${ans.id}`} 
-                                                        target="_blank"
-                                                        className="text-blue-600 hover:underline text-sm"
-                                                    >
-                                                        Baixar / Visualizar
-                                                    </a>
-                                                </div>
+                                    <div key={ans.id} className={`bg-gray-50 p-4 rounded border ${selectedCorrections.includes(ans.questionId) ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1">
+                                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">
+                                                    {ans.question?.label || "Pergunta Removida"}
+                                                </p>
+                                                
+                                                {ans.value === 'ARQUIVO' && ans.document ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-2xl">📄</span>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800">{ans.document.fileName}</p>
+                                                            <a 
+                                                                href={`http://localhost:3000/file/${ans.id}`} 
+                                                                target="_blank"
+                                                                className="text-blue-600 hover:underline text-sm"
+                                                            >
+                                                                Baixar / Visualizar
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-gray-800 font-medium">
+                                                        {ans.question?.type === 'DATE' 
+                                                            ? ans.value.split('-').reverse().join('/') 
+                                                            : ans.value}
+                                                    </p>
+                                                )}
                                             </div>
-                                        ) : (
-                                            <p className="text-gray-800 font-medium">{ans.value}</p>
-                                        )}
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selectedCorrections.includes(ans.questionId)} 
+                                                onChange={() => toggleCorrection(ans.questionId)}
+                                                className="ml-4 w-5 h-5 text-red-600"
+                                            />
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         )}
+                    </div>
+
+                    {/* Feedback */}
+                    <div>
+                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">⚠️ Solicitar Correção / Feedback</h3>
+                        <textarea
+                            className="w-full p-3 border rounded focus:ring-2 focus:ring-red-500 outline-none"
+                            rows={4}
+                            placeholder="Descreva o que precisa ser corrigido..."
+                            value={feedback}
+                            onChange={(e) => setFeedback(e.target.value)}
+                        />
+                        <button
+                            onClick={sendFeedback}
+                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                        >
+                            Enviar Feedback
+                        </button>
                     </div>
                 </div>
             </div>
