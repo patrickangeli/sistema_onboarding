@@ -6,7 +6,7 @@ import { validarCPF, mascaraCPF, mascaraCEP } from './utils/validators';
 
 
 // ⚠️ ATENÇÃO: Confirme se este ID é o mesmo do seu banco (Prisma Studio)
-const PROCESS_ID = "0cf3426b-d7bd-420b-a9ce-a0c4c1212d43"; 
+const PROCESS_ID = "e86ad335-548f-4d9d-ac68-5585e0e26700"; 
 
 export default function CandidateApp() {
   // Estados da Aplicação
@@ -36,7 +36,7 @@ export default function CandidateApp() {
 
   // 1. Carrega a estrutura do processo ao iniciar
   useEffect(() => {
-    axios.get(`http://localhost:3000/process/${PROCESS_ID}/structure`)
+    axios.get(`/process/${PROCESS_ID}/structure`)
       .then(res => { 
         setProcess(res.data); 
         setLoading(false); 
@@ -64,8 +64,8 @@ export default function CandidateApp() {
   useEffect(() => {
     if (existingCandidate && existingCandidate.corrections?.length > 0) {
         // Pre-fill address
-        if (existingCandidate.address?.[0]) {
-            const addr = existingCandidate.address[0];
+        if (existingCandidate.address) {
+            const addr = existingCandidate.address;
             setValue('cep', addr.cep);
             setValue('street', addr.street);
             setValue('number', addr.number);
@@ -114,11 +114,11 @@ export default function CandidateApp() {
     try {
         setLoading(true);
         // Tenta buscar o CPF
-        const checkRes = await axios.get(`http://localhost:3000/employee/check-cpf/${data.cpf}`);
+        const checkRes = await axios.get(`/employee/check-cpf/${data.cpf}`);
         
         // Se encontrou (200 OK), carrega detalhes
         if (checkRes.data?.id) {
-            const detailsRes = await axios.get(`http://localhost:3000/employee/${checkRes.data.id}/details`);
+            const detailsRes = await axios.get(`/employee/${checkRes.data.id}/details`);
             setExistingCandidate(detailsRes.data);
         }
     } catch (error: any) {
@@ -137,7 +137,7 @@ export default function CandidateApp() {
   const onRegister = async (data: any) => {
     try {
       setLoading(true);
-      const response = await axios.post('http://localhost:3000/employee', {
+      const response = await axios.post('/employee', {
         name: data.name,
         email: data.email,
         cpf: data.cpf,
@@ -167,7 +167,7 @@ export default function CandidateApp() {
 
       // A. Se tem dados de endereço (cep), salva na tabela Address
       if (data.cep) {
-          await axios.post('http://localhost:3000/employee/address', {
+          await axios.post('/employee/address', {
               employeeId,
               cep: data.cep, street: data.street, number: data.number,
               complement: data.complement, neighborhood: data.neighborhood,
@@ -188,11 +188,11 @@ export default function CandidateApp() {
             formData.append('file', value[0]);
             formData.append('employeeId', employeeId);
             formData.append('questionId', key); 
-            return axios.post('http://localhost:3000/upload', formData);
+            return axios.post('/upload', formData);
         } 
         // Se for Texto
         else if (typeof value === 'string') {
-            return axios.post('http://localhost:3000/answer/text', {
+            return axios.post('/answer/text', {
                 employeeId, questionId: key, value
             });
         }
@@ -201,7 +201,7 @@ export default function CandidateApp() {
       await Promise.all(promises);
 
       // C. Tenta avançar de fase
-      const response = await axios.post('http://localhost:3000/next-step', { employeeId });
+      const response = await axios.post('/next-step', { employeeId });
       alert("✅ " + response.data.message);
       window.location.reload();
 
@@ -225,13 +225,28 @@ export default function CandidateApp() {
 
   // --- MODAL DE CANDIDATO EXISTENTE ---
   if (existingCandidate && !isCorrectionMode) {
+    
+    // Se estiver APROVADO, mostra card verde
+    if (existingCandidate.status === 'APPROVED') {
+        return (
+            <div className="min-h-screen bg-green-50 p-8 flex items-center justify-center">
+                <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg overflow-hidden text-center p-10">
+                    <div className="text-6xl mb-4">🎉</div>
+                    <h1 className="text-3xl font-bold text-green-600 mb-2">Parabéns!</h1>
+                    <p className="text-xl text-gray-700 mb-6">Seu cadastro foi aprovado pelo RH.</p>
+                    <p className="text-gray-500">Aguarde o contato da nossa equipe para os próximos passos.</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-100 p-8 flex items-center justify-center">
             <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg overflow-hidden">
                 <div className="bg-yellow-500 p-6 text-white flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold">⚠️ Cadastro Já Existente</h1>
-                        <p className="opacity-90">Encontramos seus dados no sistema.</p>
+                        <h1 className="text-2xl font-bold">⚠️ Cadastro em Análise</h1>
+                        <p className="opacity-90">Seus dados já foram enviados e estão sendo analisados.</p>
                     </div>
                     <button 
                         onClick={() => window.location.reload()}
@@ -243,7 +258,7 @@ export default function CandidateApp() {
 
                 <div className="p-6 space-y-8">
                     <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-yellow-800 mb-4">
-                        Você já iniciou este processo. Abaixo estão os dados que temos registrados.
+                        Abaixo estão os dados que temos registrados.
                     </div>
 
                     {/* Dados Pessoais */}
@@ -254,23 +269,15 @@ export default function CandidateApp() {
                         <p><strong>CPF:</strong> {existingCandidate.cpf}</p>
                     </div>
 
-                    {/* Feedback do RH */}
-                    {existingCandidate.feedback && (
-                        <div className="bg-blue-50 p-4 rounded border border-blue-200 mb-4">
-                            <h3 className="text-lg font-bold text-blue-800 mb-2">💬 Feedback do RH</h3>
-                            <p className="text-gray-700 whitespace-pre-wrap">{existingCandidate.feedback}</p>
-                        </div>
-                    )}
-
                     {/* Endereço */}
-                    {existingCandidate.address && existingCandidate.address.length > 0 && (
+                    {existingCandidate.address && (
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📍 Endereço</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                <p><strong>Rua:</strong> {existingCandidate.address[0].street}, {existingCandidate.address[0].number}</p>
-                                <p><strong>Bairro:</strong> {existingCandidate.address[0].neighborhood}</p>
-                                <p><strong>Cidade/UF:</strong> {existingCandidate.address[0].city}/{existingCandidate.address[0].state}</p>
-                                <p><strong>CEP:</strong> {existingCandidate.address[0].cep}</p>
+                                <p><strong>Rua:</strong> {existingCandidate.address.street}, {existingCandidate.address.number}</p>
+                                <p><strong>Bairro:</strong> {existingCandidate.address.neighborhood}</p>
+                                <p><strong>Cidade/UF:</strong> {existingCandidate.address.city}/{existingCandidate.address.state}</p>
+                                <p><strong>CEP:</strong> {existingCandidate.address.cep}</p>
                             </div>
                         </div>
                     )}
@@ -294,7 +301,7 @@ export default function CandidateApp() {
                                                 <div>
                                                     <p className="font-bold text-gray-800">{ans.document.fileName}</p>
                                                     <a 
-                                                        href={`http://localhost:3000/file/${ans.id}`} 
+                                                        href={`/file/${ans.id}`} 
                                                         target="_blank"
                                                         className="text-blue-600 hover:underline text-sm"
                                                     >
@@ -423,6 +430,23 @@ export default function CandidateApp() {
                <span>👤</span> Identificado como: {employeeName}
             </div>
 
+            {isCorrectionMode && (
+                <div className="mb-6 bg-red-50 p-4 rounded border-l-4 border-red-500 text-red-800 shadow-sm">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                        ⚠️ Atenção: Correção Necessária
+                    </h3>
+                    <p className="mt-1">
+                        Alguns campos foram marcados pelo RH como incorretos. 
+                        Procure pelos campos destacados em vermelho e clique no botão <strong>"Corrigir ✏️"</strong> para editar.
+                    </p>
+                    {existingCandidate.feedback && (
+                        <div className="mt-3 p-3 bg-white/50 rounded border border-red-100 text-sm italic">
+                            <strong>Mensagem do RH:</strong> "{existingCandidate.feedback}"
+                        </div>
+                    )}
+                </div>
+            )}
+
             {process.phases && process.phases.map((phase: any) => (
               <div key={phase.id} className="mb-8">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
@@ -436,7 +460,7 @@ export default function CandidateApp() {
                             <span>📍</span> Endereço Residencial
                         </h3>
                         <div className="grid grid-cols-4 gap-3">
-                            {/* CEP */}
+                            {/* CEP (Tratamento Especial por causa do onChange) */}
                             <div className="col-span-1">
                                 <label className="text-xs font-bold block mb-1">CEP</label>
                                 <input 
@@ -459,13 +483,13 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">Rua</label>
                                 <input 
                                     {...register("street")} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && existingCandidate.corrections.includes('address_street')
-                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_street') : true} 
-                                    tabIndex={-1} 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_street') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                    } ${!(isCorrectionMode && existingCandidate.corrections.includes('address_street')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                    readOnly={!(isCorrectionMode && existingCandidate.corrections.includes('address_street'))}
+                                    tabIndex={!(isCorrectionMode && existingCandidate.corrections.includes('address_street')) ? -1 : 0}
                                 />
                             </div>
                             
@@ -473,10 +497,10 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">Número</label>
                                 <input 
                                     {...register("number", { required: true })} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && existingCandidate.corrections.includes('address_number')
-                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
-                                            : ''
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_number') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
                                     } ${isCorrectionMode && !existingCandidate.corrections.includes('address_number') ? 'bg-gray-100 text-gray-500' : ''}`}
                                     readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_number')}
                                 />
@@ -487,10 +511,12 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">Complemento</label>
                                 <input 
                                     {...register("complement")} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && !existingCandidate.corrections.includes('address_complement') ? 'bg-gray-100 text-gray-500' : ''
-                                    }`} 
-                                    placeholder="Apto, Bloco..." 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_complement') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_complement') ? 'bg-gray-100 text-gray-500' : ''}`}
+                                    placeholder="Apto, Bloco..."
                                     readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_complement')}
                                 />
                             </div>
@@ -499,13 +525,13 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">Bairro</label>
                                 <input 
                                     {...register("neighborhood")} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood')
-                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_neighborhood') : true} 
-                                    tabIndex={-1} 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                    } ${!(isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                    readOnly={!(isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood'))}
+                                    tabIndex={!(isCorrectionMode && existingCandidate.corrections.includes('address_neighborhood')) ? -1 : 0}
                                 />
                             </div>
                             
@@ -513,13 +539,13 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">Cidade</label>
                                 <input 
                                     {...register("city")} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && existingCandidate.corrections.includes('address_city')
-                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_city') : true} 
-                                    tabIndex={-1} 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && existingCandidate.corrections.includes('address_city') 
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                    } ${!(isCorrectionMode && existingCandidate.corrections.includes('address_city')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                    readOnly={!(isCorrectionMode && existingCandidate.corrections.includes('address_city'))}
+                                    tabIndex={!(isCorrectionMode && existingCandidate.corrections.includes('address_city')) ? -1 : 0}
                                 />
                             </div>
                             
@@ -527,13 +553,13 @@ export default function CandidateApp() {
                                 <label className="text-xs font-bold block mb-1">UF</label>
                                 <input 
                                     {...register("state")} 
-                                    className={`w-full p-2 border rounded ${
-                                        isCorrectionMode && existingCandidate.corrections.includes('address_city')
-                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50'
-                                            : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                    readOnly={isCorrectionMode ? !existingCandidate.corrections.includes('address_city') : true} 
-                                    tabIndex={-1} 
+                                    className={`w-full p-2 border rounded transition ${
+                                        isCorrectionMode && (existingCandidate.corrections.includes('address_city') || existingCandidate.corrections.includes('address_state'))
+                                            ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
+                                            : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
+                                    } ${!(isCorrectionMode && (existingCandidate.corrections.includes('address_city') || existingCandidate.corrections.includes('address_state'))) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                    readOnly={!(isCorrectionMode && (existingCandidate.corrections.includes('address_city') || existingCandidate.corrections.includes('address_state')))}
+                                    tabIndex={!(isCorrectionMode && (existingCandidate.corrections.includes('address_city') || existingCandidate.corrections.includes('address_state'))) ? -1 : 0}
                                 />
                             </div>
                         </div>
@@ -546,6 +572,8 @@ export default function CandidateApp() {
                     // Se for pergunta de Nome, esconde pois já temos
                     if (q.label.toLowerCase().includes("nome")) return <input key={q.id} type="hidden" {...register(q.id)} />;
                     
+                    const existingAnswer = existingCandidate?.answers?.find((a: any) => a.questionId === q.id);
+
                     return (
                         <div key={q.id}>
                             <DynamicInput 
@@ -557,6 +585,8 @@ export default function CandidateApp() {
                                 required={q.required}
                                 readOnly={isCorrectionMode && !existingCandidate.corrections.includes(q.id)}
                                 isInvalid={isCorrectionMode && existingCandidate.corrections.includes(q.id)}
+                                currentValue={existingAnswer?.value}
+                                currentDocument={existingAnswer?.document}
                             />
                             {errors[q.id] && <span className="text-red-500 text-sm font-semibold">{errors[q.id]?.message as string || "Campo obrigatório"}</span>}
                         </div>

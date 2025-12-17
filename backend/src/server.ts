@@ -219,12 +219,36 @@ app.post('/employee/:id/feedback', async (req, res) => {
   try {
     const employee = await prisma.employee.update({
       where: { id },
-      data: { feedback, corrections }
+      data: { 
+        feedback, 
+        corrections,
+        status: 'PENDING' // Se mandou feedback, volta para pendente (ou REJECTED/CORRECTION se preferir)
+      }
     });
     return res.json(employee);
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Erro ao salvar feedback." });
+  }
+});
+
+// NOVO: Aprovar Candidato
+app.post('/employee/:id/approve', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const employee = await prisma.employee.update({
+      where: { id },
+      data: { 
+        status: 'APPROVED',
+        feedback: null,
+        corrections: [] // Limpa correções
+      }
+    });
+    return res.json(employee);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao aprovar candidato." });
   }
 });
 
@@ -261,15 +285,32 @@ app.post('/upload', upload.single('file'), async (req, res) => {
     });
 
     // 2. Salva o binário na tabela Document (Pesada)
-    await prisma.document.create({
-      data: {
-        fileName: file.originalname,
-        mimeType: file.mimetype,
-        fileData: file.buffer,
-        employeeId: employeeId,
-        answerId: answer.id // Linka com a resposta acima
-      }
+    // Se já existir um documento para essa resposta, atualiza. Se não, cria.
+    const existingDocument = await prisma.document.findUnique({
+        where: { answerId: answer.id }
     });
+
+    if (existingDocument) {
+        await prisma.document.update({
+            where: { id: existingDocument.id },
+            data: {
+                fileName: file.originalname,
+                mimeType: file.mimetype,
+                fileData: file.buffer,
+                uploadedAt: new Date()
+            }
+        });
+    } else {
+        await prisma.document.create({
+            data: {
+                fileName: file.originalname,
+                mimeType: file.mimetype,
+                fileData: file.buffer,
+                employeeId: employeeId,
+                answerId: answer.id
+            }
+        });
+    }
 
     return res.json({ message: 'Arquivo salvo com sucesso!' });
   } catch (error) {

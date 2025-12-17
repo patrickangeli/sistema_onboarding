@@ -1,5 +1,5 @@
 // frontend/src/HRDashboard.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 
 export function HRDashboard() {
@@ -16,20 +16,25 @@ export function HRDashboard() {
   const [feedback, setFeedback] = useState("");
   const [selectedCorrections, setSelectedCorrections] = useState<string[]>([]);
 
+  const loadCandidates = useCallback(() => {
+    setLoading(true);
+    axios.get('/employees')
+      .then(response => {
+        setCandidates(response.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Erro ao buscar candidatos:", err);
+        setLoading(false);
+      });
+  }, []);
+
   // Busca os dados assim que a tela abre (se estiver autenticado)
   useEffect(() => {
     if (isAuthenticated) {
-      axios.get('http://localhost:3000/employees')
-        .then(response => {
-          setCandidates(response.data);
-          setLoading(false);
-        })
-        .catch(err => {
-          console.error("Erro ao buscar candidatos:", err);
-          setLoading(false);
-        });
+      loadCandidates();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadCandidates]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +48,7 @@ export function HRDashboard() {
 
   const fetchDetails = async (id: string) => {
     try {
-        const res = await axios.get(`http://localhost:3000/employee/${id}/details`);
+        const res = await axios.get(`/employee/${id}/details`);
         setSelectedCandidate(res.data);
         setFeedback(res.data.feedback || "");
         setSelectedCorrections(res.data.corrections || []);
@@ -61,13 +66,31 @@ export function HRDashboard() {
   const sendFeedback = async () => {
     if (!selectedCandidate) return;
     try {
-        await axios.post(`http://localhost:3000/employee/${selectedCandidate.id}/feedback`, { 
+        await axios.post(`/employee/${selectedCandidate.id}/feedback`, { 
             feedback, 
             corrections: selectedCorrections 
         });
         alert("Feedback enviado com sucesso!");
+        setSelectedCandidate(null);
+        setFeedback("");
+        setSelectedCorrections([]);
+        loadCandidates();
     } catch (error) {
         alert("Erro ao enviar feedback.");
+    }
+  };
+
+  const approveCandidate = async () => {
+    if (!selectedCandidate) return;
+    if (!confirm("Tem certeza que deseja aprovar este candidato?")) return;
+
+    try {
+        await axios.post(`/employee/${selectedCandidate.id}/approve`);
+        alert("Candidato aprovado com sucesso!");
+        setSelectedCandidate(null);
+        loadCandidates();
+    } catch (error) {
+        alert("Erro ao aprovar candidato.");
     }
   };
 
@@ -75,45 +98,52 @@ export function HRDashboard() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-sm">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">Acesso Restrito RH</h2>
+        <div className="w-full max-w-md bg-white shadow-xl rounded-lg overflow-hidden">
           
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Usuário</label>
-              <input 
-                type="text" 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder=" "
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Senha</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder=""
-              />
-            </div>
+          {/* Cabeçalho Azul (Igual ao Candidato) */}
+          <div className="bg-blue-600 p-6 text-white text-center">
+            <h1 className="text-2xl font-bold">Portal do RH</h1>
+            <p className="opacity-90">Gerenciamento de Admissões</p>
+          </div>
 
-            {loginError && (
-              <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">
-                {loginError}
+          <div className="p-8">
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Usuário</label>
+                <input 
+                  type="text" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  placeholder="Digite seu usuário"
+                />
               </div>
-            )}
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Senha</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500 outline-none transition"
+                  placeholder="Digite sua senha"
+                />
+              </div>
 
-            <button 
-              type="submit" 
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded transition-colors"
-            >
-              Entrar
-            </button>
-          </form>
+              {loginError && (
+                <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded border border-red-200">
+                  {loginError}
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded transition-colors shadow-md"
+              >
+                Acessar Painel
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -139,25 +169,25 @@ export function HRDashboard() {
 
                 <div className="p-6 space-y-8">
                     {/* Endereço */}
-                    {selectedCandidate.address && selectedCandidate.address.length > 0 && (
+                    {selectedCandidate.address && (
                         <div>
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📍 Endereço</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" checked={selectedCorrections.includes('address_street')} onChange={() => toggleCorrection('address_street')} />
-                                    <p><strong>Rua:</strong> {selectedCandidate.address[0].street}, {selectedCandidate.address[0].number}</p>
+                                    <p><strong>Rua:</strong> {selectedCandidate.address.street}, {selectedCandidate.address.number}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" checked={selectedCorrections.includes('address_neighborhood')} onChange={() => toggleCorrection('address_neighborhood')} />
-                                    <p><strong>Bairro:</strong> {selectedCandidate.address[0].neighborhood}</p>
+                                    <p><strong>Bairro:</strong> {selectedCandidate.address.neighborhood}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" checked={selectedCorrections.includes('address_city')} onChange={() => toggleCorrection('address_city')} />
-                                    <p><strong>Cidade/UF:</strong> {selectedCandidate.address[0].city}/{selectedCandidate.address[0].state}</p>
+                                    <p><strong>Cidade/UF:</strong> {selectedCandidate.address.city}/{selectedCandidate.address.state}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <input type="checkbox" checked={selectedCorrections.includes('address_cep')} onChange={() => toggleCorrection('address_cep')} />
-                                    <p><strong>CEP:</strong> {selectedCandidate.address[0].cep}</p>
+                                    <p><strong>CEP:</strong> {selectedCandidate.address.cep}</p>
                                 </div>
                             </div>
                         </div>
@@ -184,7 +214,7 @@ export function HRDashboard() {
                                                         <div>
                                                             <p className="font-bold text-gray-800">{ans.document.fileName}</p>
                                                             <a 
-                                                                href={`http://localhost:3000/file/${ans.id}`} 
+                                                                href={`/file/${ans.id}`} 
                                                                 target="_blank"
                                                                 className="text-blue-600 hover:underline text-sm"
                                                             >
@@ -223,12 +253,20 @@ export function HRDashboard() {
                             value={feedback}
                             onChange={(e) => setFeedback(e.target.value)}
                         />
-                        <button
-                            onClick={sendFeedback}
-                            className="mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors"
-                        >
-                            Enviar Feedback
-                        </button>
+                        <div className="flex gap-4 mt-4">
+                            <button
+                                onClick={sendFeedback}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded transition-colors shadow"
+                            >
+                                Solicitar Correção
+                            </button>
+                            <button
+                                onClick={approveCandidate}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition-colors shadow"
+                            >
+                                ✅ Aprovar Candidato
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -254,9 +292,6 @@ export function HRDashboard() {
                 className="text-gray-600 hover:text-red-500 font-semibold px-4 py-2"
             >
                 Sair
-            </button>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 shadow">
-                + Novo Processo
             </button>
           </div>
         </div>
@@ -297,8 +332,14 @@ export function HRDashboard() {
                     <td className="p-4">
                         {/* Simulação de status baseada na fase */}
                         <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-yellow-400"></span>
-                            <span className="text-sm text-gray-600">Em andamento</span>
+                            <span className={`w-2 h-2 rounded-full ${
+                                c.status === 'APPROVED' ? 'bg-green-500' :
+                                c.corrections?.length > 0 ? 'bg-red-500' : 'bg-yellow-400'
+                            }`}></span>
+                            <span className="text-sm text-gray-600">
+                                {c.status === 'APPROVED' ? 'Aprovado' :
+                                 c.corrections?.length > 0 ? 'Correção Solicitada' : 'Em Análise'}
+                            </span>
                         </div>
                     </td>
                     <td className="p-4 text-right">

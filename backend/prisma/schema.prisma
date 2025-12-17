@@ -83,6 +83,7 @@ model Employee {
 
   feedback       String? // Feedback do RH para o candidato
   corrections    String[] // IDs dos campos/perguntas que precisam de correção
+  status         ValidationStatus @default(PENDING)
 
   // Relacionamentos
   address   Address?

@@ -4,4 +4,15 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/process': 'http://localhost:3000',
+      '/employees': 'http://localhost:3000',
+      '/employee': 'http://localhost:3000',
+      '/upload': 'http://localhost:3000',
+      '/answer': 'http://localhost:3000',
+      '/next-step': 'http://localhost:3000',
+      '/file': 'http://localhost:3000',
+    }
+  }
 })
