@@ -1,0 +1,59 @@
+server {
+    # Seus domínios (com e sem www)
+    server_name gabrielmachadoambiental.com.br www.gabrielmachadoambiental.com.br;
+
+    # O PULO DO GATO: O "root" agora é a pasta do Gabriel
+    root /var/www/html/gabriel/dist;
+
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/gabrielmachadoambiental.com.br/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/gabrielmachadoambiental.com.br/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = www.gabrielmachadoambiental.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    if ($host = gabrielmachadoambiental.com.br) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    listen [::]:80;
+    server_name gabrielmachadoambiental.com.br www.gabrielmachadoambiental.com.br;
+    return 404; # managed by Certbot
+}
+
+# --- NOVO BLOCO: SISTEMA ONBOARDING ---
+server {
+    listen 80;
+    server_name vps-e385377d.vps.ovh.ca;
+
+    index index.html;
+
+    # Configuração para rodar em /onboarding
+    location /onboarding {
+        alias /var/www/html/sistema_onboarding/frontend/dist;
+        try_files $uri $uri/ /onboarding/index.html;
+    }
+
+    # Proxy Reverso para o Backend (Node.js na porta 3000)
+    location ~ ^/(process|employees|employee|upload|answer|next-step|file) {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}

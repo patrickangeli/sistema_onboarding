@@ -33,7 +33,6 @@ export function DynamicInput({ label, type, name, register, options, required, r
   const effectiveRequired = isInvalid ? true : (hasExistingValue ? false : required);
 
   // Base CSS para ficar bonitinho
-  const labelStyle = "block text-sm font-medium text-gray-700 mb-1";
   // Se inválido (correção), borda vermelha. Se readOnly, fundo cinza.
   const inputStyle = `w-full p-2 border rounded focus:outline-none ${
     isInvalid 
@@ -129,12 +128,13 @@ export function DynamicInput({ label, type, name, register, options, required, r
         <div className={`mb-4 p-4 border-2 border-dashed rounded ${isInvalid ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50'}`}>
           <label className="block mb-1 font-bold text-gray-700 flex items-center">
             {label} {required && <span className="text-red-500 ml-1">*</span>}
+            <span className="text-xs font-normal text-gray-500 ml-2">(Máx: 1MB)</span>
             <CorrectionButton />
           </label>
           
-          {hasExistingValue && !isInvalid && (
-             <div className="flex items-center gap-2 mb-2 text-sm text-green-700 bg-green-100 p-2 rounded border border-green-200">
-                <span>✅ Arquivo já enviado:</span>
+          {hasExistingValue && (
+             <div className={`flex items-center gap-2 mb-2 text-sm p-2 rounded border ${isInvalid ? 'text-red-700 bg-red-100 border-red-200' : 'text-green-700 bg-green-100 border-green-200'}`}>
+                <span>{isInvalid ? '⚠️ Arquivo Anterior:' : '✅ Arquivo já enviado:'}</span>
                 <span className="font-bold">{currentDocument?.fileName || "Anexo"}</span>
              </div>
           )}

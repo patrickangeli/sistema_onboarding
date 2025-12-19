@@ -15,6 +15,7 @@ export function HRDashboard() {
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [feedback, setFeedback] = useState("");
   const [selectedCorrections, setSelectedCorrections] = useState<string[]>([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   const loadCandidates = useCallback(() => {
     setLoading(true);
@@ -63,6 +64,17 @@ export function HRDashboard() {
     );
   };
 
+  const addressFields = ['address_cep', 'address_street', 'address_number', 'address_complement', 'address_neighborhood', 'address_city', 'address_state'];
+  const isAddressCorrection = addressFields.some(f => selectedCorrections.includes(f));
+
+  const toggleAddressCorrection = () => {
+    if (isAddressCorrection) {
+        setSelectedCorrections(prev => prev.filter(x => !addressFields.includes(x)));
+    } else {
+        setSelectedCorrections(prev => [...new Set([...prev, ...addressFields])]);
+    }
+  };
+
   const sendFeedback = async () => {
     if (!selectedCandidate) return;
     try {
@@ -91,6 +103,19 @@ export function HRDashboard() {
         loadCandidates();
     } catch (error) {
         alert("Erro ao aprovar candidato.");
+    }
+  };
+
+  const deleteCandidate = async (id: string, name: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o candidato ${name}? Esta ação não pode ser desfeita.`)) return;
+
+    try {
+        await axios.delete(`/employee/${id}`);
+        alert("Candidato removido com sucesso!");
+        if (selectedCandidate?.id === id) setSelectedCandidate(null);
+        loadCandidates();
+    } catch (error) {
+        alert("Erro ao remover candidato.");
     }
   };
 
@@ -152,42 +177,48 @@ export function HRDashboard() {
   // --- MODAL DE DETALHES ---
   if (selectedCandidate) {
     return (
-        <div className="min-h-screen bg-gray-100 p-8">
-            <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
-                <div className="bg-blue-600 p-6 text-white flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold">{selectedCandidate.name}</h1>
-                        <p className="opacity-90">{selectedCandidate.email} | {selectedCandidate.cpf}</p>
-                    </div>
+        <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
+            <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg overflow-hidden">
+                <div className="bg-blue-600 p-6 text-white text-center relative">
+                    <h1 className="text-2xl font-bold mb-1">{selectedCandidate.name}</h1>
+                    <p className="opacity-90 text-sm">{selectedCandidate.email} | {selectedCandidate.cpf}</p>
                     <button 
                         onClick={() => setSelectedCandidate(null)}
-                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded"
+                        className="absolute top-4 right-4 text-white/80 hover:text-white font-bold"
+                        title="Fechar"
                     >
-                        Fechar
+                        ✕
                     </button>
                 </div>
 
-                <div className="p-6 space-y-8">
+                <div className="p-6 space-y-6">
+                    
                     {/* Endereço */}
                     {selectedCandidate.address && (
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📍 Endereço</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" checked={selectedCorrections.includes('address_street')} onChange={() => toggleCorrection('address_street')} />
-                                    <p><strong>Rua:</strong> {selectedCandidate.address.street}, {selectedCandidate.address.number}</p>
+                            <div className="flex justify-between items-center border-b pb-2 mb-3">
+                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider">📍 Endereço</h3>
+                                <button 
+                                    onClick={toggleAddressCorrection}
+                                    className={`text-xs font-bold px-3 py-1 rounded border transition flex items-center gap-1 ${
+                                        isAddressCorrection 
+                                            ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' 
+                                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {isAddressCorrection ? '❌ Cancelar Correção' : '✏️ Solicitar Correção'}
+                                </button>
+                            </div>
+                            
+                            <div className={`text-sm space-y-1 p-3 rounded transition-colors ${isAddressCorrection ? 'bg-red-50 border border-red-100' : 'bg-gray-50 border border-gray-100'}`}>
+                                <div className="font-medium text-gray-800">
+                                    {selectedCandidate.address.street}, {selectedCandidate.address.number} {selectedCandidate.address.complement && `- ${selectedCandidate.address.complement}`}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" checked={selectedCorrections.includes('address_neighborhood')} onChange={() => toggleCorrection('address_neighborhood')} />
-                                    <p><strong>Bairro:</strong> {selectedCandidate.address.neighborhood}</p>
+                                <div className="text-gray-600">
+                                    {selectedCandidate.address.neighborhood} - {selectedCandidate.address.city}/{selectedCandidate.address.state}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" checked={selectedCorrections.includes('address_city')} onChange={() => toggleCorrection('address_city')} />
-                                    <p><strong>Cidade/UF:</strong> {selectedCandidate.address.city}/{selectedCandidate.address.state}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input type="checkbox" checked={selectedCorrections.includes('address_cep')} onChange={() => toggleCorrection('address_cep')} />
-                                    <p><strong>CEP:</strong> {selectedCandidate.address.cep}</p>
+                                <div className="text-gray-500 text-xs mt-1">
+                                    CEP: {selectedCandidate.address.cep}
                                 </div>
                             </div>
                         </div>
@@ -195,48 +226,41 @@ export function HRDashboard() {
 
                     {/* Respostas */}
                     <div>
-                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📝 Respostas do Formulário</h3>
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b pb-2 mb-3">📝 Respostas do Formulário</h3>
                         {selectedCandidate.answers.length === 0 ? (
-                            <p className="text-gray-500">Nenhuma resposta registrada ainda.</p>
+                            <p className="text-gray-500 text-sm italic">Nenhuma resposta registrada.</p>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 gap-3">
                                 {selectedCandidate.answers.map((ans: any) => (
-                                    <div key={ans.id} className={`bg-gray-50 p-4 rounded border ${selectedCorrections.includes(ans.questionId) ? 'border-red-500 bg-red-50' : 'border-gray-200'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex-1">
-                                                <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                                                    {ans.question?.label || "Pergunta Removida"}
-                                                </p>
-                                                
-                                                {ans.value === 'ARQUIVO' && ans.document ? (
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-2xl">📄</span>
-                                                        <div>
-                                                            <p className="font-bold text-gray-800">{ans.document.fileName}</p>
-                                                            <a 
-                                                                href={`/file/${ans.id}`} 
-                                                                target="_blank"
-                                                                className="text-blue-600 hover:underline text-sm"
-                                                            >
-                                                                Baixar / Visualizar
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-gray-800 font-medium">
-                                                        {ans.question?.type === 'DATE' 
-                                                            ? ans.value.split('-').reverse().join('/') 
-                                                            : ans.value}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={selectedCorrections.includes(ans.questionId)} 
-                                                onChange={() => toggleCorrection(ans.questionId)}
-                                                className="ml-4 w-5 h-5 text-red-600"
-                                            />
+                                    <div key={ans.id} className={`flex justify-between items-center p-3 rounded border text-sm ${selectedCorrections.includes(ans.questionId) ? 'border-red-500 bg-red-50' : 'border-gray-100 bg-gray-50'}`}>
+                                        <div className="flex-1">
+                                            <span className="font-medium text-gray-600 block mb-1">
+                                                {ans.question?.label || "Questão"}
+                                            </span>
+                                            
+                                            {ans.value === 'ARQUIVO' && ans.document ? (
+                                                <a 
+                                                    href={`/file/${ans.id}`} 
+                                                    target="_blank"
+                                                    className="text-blue-600 hover:underline flex items-center gap-1 font-semibold"
+                                                >
+                                                    📄 {ans.document.fileName}
+                                                </a>
+                                            ) : (
+                                                <span className="text-gray-800 font-semibold">
+                                                    {ans.question?.type === 'DATE' 
+                                                        ? ans.value.split('-').reverse().join('/') 
+                                                        : ans.value}
+                                                </span>
+                                            )}
                                         </div>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedCorrections.includes(ans.questionId)} 
+                                            onChange={() => toggleCorrection(ans.questionId)}
+                                            className="ml-3 w-5 h-5 text-red-600 cursor-pointer"
+                                            title="Marcar para correção"
+                                        />
                                     </div>
                                 ))}
                             </div>
@@ -244,27 +268,27 @@ export function HRDashboard() {
                     </div>
 
                     {/* Feedback */}
-                    <div>
-                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">⚠️ Solicitar Correção / Feedback</h3>
+                    <div className="pt-4 border-t">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">⚠️ Ações do RH</h3>
                         <textarea
-                            className="w-full p-3 border rounded focus:ring-2 focus:ring-red-500 outline-none"
-                            rows={4}
-                            placeholder="Descreva o que precisa ser corrigido..."
+                            className="w-full p-3 border rounded focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                            rows={3}
+                            placeholder="Descreva o que precisa ser corrigido (se houver)..."
                             value={feedback}
                             onChange={(e) => setFeedback(e.target.value)}
                         />
-                        <div className="flex gap-4 mt-4">
+                        <div className="flex gap-3 mt-3">
                             <button
                                 onClick={sendFeedback}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded transition-colors shadow"
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors shadow text-sm"
                             >
                                 Solicitar Correção
                             </button>
                             <button
                                 onClick={approveCandidate}
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition-colors shadow"
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition-colors shadow text-sm"
                             >
-                                ✅ Aprovar Candidato
+                                ✅ Aprovar
                             </button>
                         </div>
                     </div>
@@ -286,7 +310,14 @@ export function HRDashboard() {
             <h1 className="text-3xl font-bold text-gray-800">Painel de Recrutamento</h1>
             <p className="text-gray-500">Gerencie as admissões e acompanhe as fases.</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            <button
+                onClick={() => setShowHelpModal(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full transition-colors shadow-md"
+                title="Como funciona?"
+            >
+                <span className="text-xl">❓</span>
+            </button>
             <button 
                 onClick={() => setIsAuthenticated(false)}
                 className="text-gray-600 hover:text-red-500 font-semibold px-4 py-2"
@@ -295,6 +326,33 @@ export function HRDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Help Modal */}
+        {showHelpModal && (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowHelpModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden relative" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b">
+                    <h2 className="text-xl font-bold text-gray-800">Como funciona o sistema?</h2>
+                    <button
+                        onClick={() => setShowHelpModal(false)}
+                        className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <div className="p-0 bg-black">
+                    <div style={{ position: 'relative', paddingBottom: '52.65625%', height: 0 }}>
+                        <iframe
+                            src="https://www.loom.com/embed/3e177467ac9e41c3bab1857416a79b9b"
+                            frameBorder="0"
+                            allowFullScreen
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                        ></iframe>
+                    </div>
+                </div>
+            </div>
+            </div>
+        )}
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <table className="w-full text-left border-collapse">
@@ -345,9 +403,16 @@ export function HRDashboard() {
                     <td className="p-4 text-right">
                       <button 
                         onClick={() => fetchDetails(c.id)}
-                        className="text-blue-600 hover:text-blue-800 font-semibold text-sm border border-blue-200 px-3 py-1 rounded hover:bg-blue-50"
+                        className="text-blue-600 hover:text-blue-800 font-semibold text-sm border border-blue-200 px-3 py-1 rounded hover:bg-blue-50 mr-2"
                       >
                         Ver Detalhes
+                      </button>
+                      <button 
+                        onClick={() => deleteCandidate(c.id, c.name)}
+                        className="text-red-600 hover:text-red-800 font-semibold text-sm border border-red-200 px-3 py-1 rounded hover:bg-red-50"
+                        title="Excluir Candidato"
+                      >
+                        🗑️
                       </button>
                     </td>
                   </tr>

@@ -6,23 +6,24 @@ import { validarCPF, mascaraCPF, mascaraCEP } from './utils/validators';
 
 
 // ⚠️ ATENÇÃO: Confirme se este ID é o mesmo do seu banco (Prisma Studio)
-const PROCESS_ID = "e86ad335-548f-4d9d-ac68-5585e0e26700"; 
+const PROCESS_ID = "6a475050-ebdd-4b4f-8ef1-0753321992ec"; 
 
 export default function CandidateApp() {
   // Estados da Aplicação
-  const [process, setProcess] = useState<any>(null);
+  const [process, setProcess] = useState<any>(null);    
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [employeeName, setEmployeeName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [existingCandidate, setExistingCandidate] = useState<any>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [tempCandidateData, setTempCandidateData] = useState<any>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // FORM 1: Identificação (Tela Inicial)
   const { 
     register: registerAuth, 
     handleSubmit: handleSubmitAuth,
-    formState: { errors: errorsAuth },
-    setValue: setValueAuth
+    formState: { errors: errorsAuth }
   } = useForm();
 
   // FORM 2: Perguntas Dinâmicas + Endereço (Telas Seguintes)
@@ -135,40 +136,50 @@ export default function CandidateApp() {
 
   // --- LÓGICA: REGISTRO FINAL (TELA 1 - PASSO B) ---
   const onRegister = async (data: any) => {
-    try {
-      setLoading(true);
-      const response = await axios.post('/employee', {
+    // Apenas salva no estado temporário e avança para as fases
+    setTempCandidateData({
         name: data.name,
         email: data.email,
-        cpf: data.cpf,
-        processId: PROCESS_ID
-      });
-
-      setEmployeeId(response.data.id);
-      setEmployeeName(data.name);
-      setLoading(false);
-    } catch (error: any) {
-      if (error.response?.status === 400 && error.response?.data?.error?.includes("CPF")) {
-          alert("Este CPF já foi cadastrado.");
-          window.location.reload();
-          return;
-      }
-      alert(error.response?.data?.error || "Erro ao iniciar cadastro.");
-      setLoading(false);
-    }
+        cpf: data.cpf
+    });
+    setEmployeeName(data.name);
+    // Não fazemos POST aqui. O POST será feito no final (onSubmitPhase).
   };
 
   // --- LÓGICA: ENVIO DAS FASES (TELA 2) ---
   const onSubmitPhase = async (data: any) => {
-    if (!employeeId) return;
-    
     try {
       setLoading(true);
+      let currentEmployeeId = employeeId;
+
+      // 1. Se não temos ID ainda (Novo Cadastro), cria o Employee agora
+      if (!currentEmployeeId && tempCandidateData) {
+          try {
+            const createRes = await axios.post('/employee', {
+                ...tempCandidateData,
+                processId: PROCESS_ID
+            });
+            currentEmployeeId = createRes.data.id;
+            setEmployeeId(currentEmployeeId);
+          } catch (error: any) {
+            if (error.response?.status === 400 && error.response?.data?.error?.includes("CPF")) {
+                alert("Este CPF já foi cadastrado.");
+                window.location.reload();
+                return;
+            }
+            throw error; // Lança para o catch principal
+          }
+      }
+
+      if (!currentEmployeeId) {
+          alert("Erro: ID do candidato não encontrado.");
+          return;
+      }
 
       // A. Se tem dados de endereço (cep), salva na tabela Address
       if (data.cep) {
           await axios.post('/employee/address', {
-              employeeId,
+              employeeId: currentEmployeeId,
               cep: data.cep, street: data.street, number: data.number,
               complement: data.complement, neighborhood: data.neighborhood,
               city: data.city, state: data.state
@@ -186,14 +197,14 @@ export default function CandidateApp() {
         if (value instanceof FileList && value.length > 0) {
             const formData = new FormData();
             formData.append('file', value[0]);
-            formData.append('employeeId', employeeId);
+            formData.append('employeeId', currentEmployeeId!);
             formData.append('questionId', key); 
             return axios.post('/upload', formData);
         } 
         // Se for Texto
         else if (typeof value === 'string') {
             return axios.post('/answer/text', {
-                employeeId, questionId: key, value
+                employeeId: currentEmployeeId, questionId: key, value
             });
         }
       });
@@ -201,7 +212,7 @@ export default function CandidateApp() {
       await Promise.all(promises);
 
       // C. Tenta avançar de fase
-      const response = await axios.post('/next-step', { employeeId });
+      const response = await axios.post('/next-step', { employeeId: currentEmployeeId });
       alert("✅ " + response.data.message);
       window.location.reload();
 
@@ -210,7 +221,7 @@ export default function CandidateApp() {
       if (error.response?.data?.missing) {
          alert(`Faltam preencher: ${error.response.data.missing.join(', ')}`);
       } else {
-         alert("Erro ao salvar: " + error.message);
+         alert("Erro ao salvar: " + (error.response?.data?.error || error.message));
       }
     } finally {
       setLoading(false);
@@ -222,6 +233,7 @@ export default function CandidateApp() {
   if (!process) return <div className="min-h-screen flex items-center justify-center text-red-500 font-bold">Erro: Processo não encontrado. Verifique o ID.</div>;
 
   const isCorrectionMode = existingCandidate?.corrections?.length > 0;
+  const hasAddressCorrection = isCorrectionMode && existingCandidate.corrections.some((c: any) => c.startsWith('address_'));
 
   // --- MODAL DE CANDIDATO EXISTENTE ---
   if (existingCandidate && !isCorrectionMode) {
@@ -241,80 +253,83 @@ export default function CandidateApp() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 p-8 flex items-center justify-center">
-            <div className="w-full max-w-4xl bg-white shadow-lg rounded-lg overflow-hidden">
-                <div className="bg-yellow-500 p-6 text-white flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold">⚠️ Cadastro em Análise</h1>
-                        <p className="opacity-90">Seus dados já foram enviados e estão sendo analisados.</p>
-                    </div>
+        <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
+            <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg overflow-hidden">
+                <div className="bg-yellow-500 p-6 text-white text-center relative">
+                    <h1 className="text-2xl font-bold mb-2">⚠️ Cadastro em Análise</h1>
+                    <p className="opacity-90">Seus dados foram enviados e estão sob revisão do RH.</p>
                     <button 
                         onClick={() => window.location.reload()}
-                        className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded"
+                        className="absolute top-4 right-4 text-white/80 hover:text-white font-bold"
+                        title="Sair / Voltar"
                     >
-                        Voltar
+                        ✕
                     </button>
                 </div>
 
-                <div className="p-6 space-y-8">
-                    <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-yellow-800 mb-4">
-                        Abaixo estão os dados que temos registrados.
+                <div className="p-6 space-y-6">
+                    <div className="bg-yellow-50 p-4 rounded border border-yellow-200 text-yellow-800 text-sm text-center">
+                        Você não precisa fazer nada agora. Assim que analisarmos, entraremos em contato ou solicitaremos correções por aqui.
                     </div>
 
                     {/* Dados Pessoais */}
                     <div>
-                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">👤 Dados Pessoais</h3>
-                        <p><strong>Nome:</strong> {existingCandidate.name}</p>
-                        <p><strong>Email:</strong> {existingCandidate.email}</p>
-                        <p><strong>CPF:</strong> {existingCandidate.cpf}</p>
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b pb-2 mb-3">👤 Dados Pessoais</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span className="block text-gray-500 text-xs">Nome</span>
+                                <span className="font-medium text-gray-800">{existingCandidate.name}</span>
+                            </div>
+                            <div>
+                                <span className="block text-gray-500 text-xs">CPF</span>
+                                <span className="font-medium text-gray-800">{existingCandidate.cpf}</span>
+                            </div>
+                            <div className="md:col-span-2">
+                                <span className="block text-gray-500 text-xs">E-mail</span>
+                                <span className="font-medium text-gray-800">{existingCandidate.email}</span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Endereço */}
                     {existingCandidate.address && (
                         <div>
-                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📍 Endereço</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                <p><strong>Rua:</strong> {existingCandidate.address.street}, {existingCandidate.address.number}</p>
-                                <p><strong>Bairro:</strong> {existingCandidate.address.neighborhood}</p>
-                                <p><strong>Cidade/UF:</strong> {existingCandidate.address.city}/{existingCandidate.address.state}</p>
-                                <p><strong>CEP:</strong> {existingCandidate.address.cep}</p>
+                            <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b pb-2 mb-3">📍 Endereço</h3>
+                            <div className="text-sm text-gray-700">
+                                <p>{existingCandidate.address.street}, {existingCandidate.address.number} {existingCandidate.address.complement && `- ${existingCandidate.address.complement}`}</p>
+                                <p>{existingCandidate.address.neighborhood} - {existingCandidate.address.city}/{existingCandidate.address.state}</p>
+                                <p className="text-gray-500 text-xs mt-1">CEP: {existingCandidate.address.cep}</p>
                             </div>
                         </div>
                     )}
 
                     {/* Respostas */}
                     <div>
-                        <h3 className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">📝 Respostas do Formulário</h3>
+                        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider border-b pb-2 mb-3">📝 Respostas Enviadas</h3>
                         {existingCandidate.answers.length === 0 ? (
-                            <p className="text-gray-500">Nenhuma resposta registrada ainda.</p>
+                            <p className="text-gray-500 text-sm italic">Nenhuma resposta registrada.</p>
                         ) : (
-                            <div className="space-y-4">
+                            <div className="grid grid-cols-1 gap-3">
                                 {existingCandidate.answers.map((ans: any) => (
-                                    <div key={ans.id} className="bg-gray-50 p-4 rounded border border-gray-200">
-                                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">
-                                            {ans.question?.label || "Pergunta Removida"}
-                                        </p>
+                                    <div key={ans.id} className="flex justify-between items-center bg-gray-50 p-3 rounded border border-gray-100 text-sm">
+                                        <span className="font-medium text-gray-600">
+                                            {ans.question?.label || "Questão"}
+                                        </span>
                                         
                                         {ans.value === 'ARQUIVO' && ans.document ? (
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-2xl">📄</span>
-                                                <div>
-                                                    <p className="font-bold text-gray-800">{ans.document.fileName}</p>
-                                                    <a 
-                                                        href={`/file/${ans.id}`} 
-                                                        target="_blank"
-                                                        className="text-blue-600 hover:underline text-sm"
-                                                    >
-                                                        Baixar / Visualizar
-                                                    </a>
-                                                </div>
-                                            </div>
+                                            <a 
+                                                href={`/file/${ans.id}`} 
+                                                target="_blank"
+                                                className="text-blue-600 hover:underline flex items-center gap-1"
+                                            >
+                                                📄 {ans.document.fileName}
+                                            </a>
                                         ) : (
-                                            <p className="text-gray-800 font-medium">
+                                            <span className="text-gray-800 font-semibold">
                                                 {ans.question?.type === 'DATE' 
                                                     ? ans.value.split('-').reverse().join('/') 
                                                     : ans.value}
-                                            </p>
+                                            </span>
                                         )}
                                     </div>
                                 ))}
@@ -329,15 +344,49 @@ export default function CandidateApp() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-white shadow-xl rounded-lg overflow-hidden">
+      <div className={`w-full bg-white shadow-xl rounded-lg overflow-hidden transition-all duration-500 ${!employeeId && !tempCandidateData ? 'max-w-md' : 'max-w-2xl'}`}>
         
         {/* Cabeçalho do Processo */}
-        <div className="bg-blue-600 p-6 text-white">
+        <div className="bg-blue-600 p-6 text-white text-center relative">
           <h1 className="text-2xl font-bold">{process.title}</h1>
           <p className="opacity-90">{process.description}</p>
+          <button
+            onClick={() => setShowHelpModal(true)}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors"
+            title="Como funciona?"
+          >
+            <span className="text-xl">❓</span>
+          </button>
         </div>
 
-        {!employeeId ? (
+        {/* Help Modal */}
+        {showHelpModal && (
+            <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowHelpModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden relative" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b">
+                    <h2 className="text-xl font-bold text-gray-800">Como funciona o sistema?</h2>
+                    <button
+                        onClick={() => setShowHelpModal(false)}
+                        className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                    >
+                        &times;
+                    </button>
+                </div>
+                <div className="p-0 bg-black">
+                    <div style={{ position: 'relative', paddingBottom: '52.65625%', height: 0 }}>
+                        <iframe
+                            src="https://www.loom.com/embed/3e177467ac9e41c3bab1857416a79b9b"
+                            frameBorder="0"
+                            allowFullScreen
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+                        ></iframe>
+                    </div>
+                </div>
+            </div>
+            </div>
+        )}
+
+        {!employeeId && !tempCandidateData ? (
           // ============================================================
           // TELA 1: IDENTIFICAÇÃO (CPF -> Nome/Email)
           // ============================================================
@@ -470,10 +519,10 @@ export default function CandidateApp() {
                                         isCorrectionMode && existingCandidate.corrections.includes('address_cep') 
                                             ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
                                             : 'border-blue-300 bg-blue-50 focus:bg-white'
-                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_cep') ? 'bg-gray-100 text-gray-500' : ''}`}
+                                    } ${isCorrectionMode && !hasAddressCorrection ? 'bg-gray-100 text-gray-500' : ''}`}
                                     placeholder="00000-000"
                                     maxLength={9}
-                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_cep')}
+                                    readOnly={isCorrectionMode && !hasAddressCorrection}
                                 />
                                 {errors.cep && <span className="text-red-500 text-xs">*</span>}
                             </div>
@@ -501,8 +550,8 @@ export default function CandidateApp() {
                                         isCorrectionMode && existingCandidate.corrections.includes('address_number') 
                                             ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
                                             : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
-                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_number') ? 'bg-gray-100 text-gray-500' : ''}`}
-                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_number')}
+                                    } ${isCorrectionMode && !hasAddressCorrection ? 'bg-gray-100 text-gray-500' : ''}`}
+                                    readOnly={isCorrectionMode && !hasAddressCorrection}
                                 />
                                 {errors.number && <span className="text-red-500 text-xs">*</span>}
                             </div>
@@ -515,9 +564,9 @@ export default function CandidateApp() {
                                         isCorrectionMode && existingCandidate.corrections.includes('address_complement') 
                                             ? 'border-red-500 ring-1 ring-red-500 bg-red-50' 
                                             : 'border-gray-300 focus:ring-2 focus:ring-blue-500'
-                                    } ${isCorrectionMode && !existingCandidate.corrections.includes('address_complement') ? 'bg-gray-100 text-gray-500' : ''}`}
+                                    } ${isCorrectionMode && !hasAddressCorrection ? 'bg-gray-100 text-gray-500' : ''}`}
                                     placeholder="Apto, Bloco..."
-                                    readOnly={isCorrectionMode && !existingCandidate.corrections.includes('address_complement')}
+                                    readOnly={isCorrectionMode && !hasAddressCorrection}
                                 />
                             </div>
                             

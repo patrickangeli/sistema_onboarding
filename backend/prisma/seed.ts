@@ -94,7 +94,7 @@ async function main() {
     data: {
       name: 'João da Silva',
       email: 'joao.silva@example.com',
-      cpf: '111.111.111-11',
+      cpf: '46817310563',
       currentPhaseId: phase2.id, // Já passou da fase 1
       status: 'APPROVED',
       address: {
@@ -123,7 +123,7 @@ async function main() {
     data: {
       name: 'Maria Oliveira',
       email: 'maria.oliveira@example.com',
-      cpf: '222.222.222-22',
+      cpf: '33766663429',
       currentPhaseId: phase1.id,
       status: 'PENDING',
       answers: {
@@ -139,7 +139,7 @@ async function main() {
     data: {
       name: 'Carlos Souza',
       email: 'carlos.souza@example.com',
-      cpf: '333.333.333-33',
+      cpf: '64694298313',
       currentPhaseId: phase1.id,
       status: 'PENDING',
       feedback: 'O comprovante de residência está ilegível e o CEP parece incorreto.',

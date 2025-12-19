@@ -252,6 +252,20 @@ app.post('/employee/:id/approve', async (req, res) => {
   }
 });
 
+// NOVO: Deletar Candidato
+app.delete('/employee/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.employee.delete({
+      where: { id }
+    });
+    return res.json({ message: "Candidato removido com sucesso." });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Erro ao remover candidato." });
+  }
+});
+
 // 5. Salvar Resposta de Texto/Select
 app.post('/answer/text', async (req, res) => {
   const { employeeId, questionId, value } = req.body;
@@ -348,6 +362,18 @@ app.post('/next-step', async (req, res) => {
       });
     }
 
+    // SE HOUVER CORREÇÕES PENDENTES, LIMPA ELAS (POIS O CANDIDATO REENVIOU)
+    if (employee.corrections.length > 0 || employee.feedback) {
+        await prisma.employee.update({
+            where: { id: employeeId },
+            data: { 
+                corrections: [],
+                feedback: null,
+                status: 'PENDING'
+            }
+        });
+    }
+
     // Avança Fase
     const nextPhase = await prisma.phase.findFirst({
       where: {
@@ -357,6 +383,10 @@ app.post('/next-step', async (req, res) => {
     });
 
     if (!nextPhase) {
+      // Se não tem próxima fase, mas limpamos as correções acima, avisamos que foi reenviado
+      if (employee.corrections.length > 0) {
+         return res.json({ message: "Correções enviadas com sucesso! Aguarde nova análise." });
+      }
       return res.json({ message: "Processo Finalizado! Não há mais etapas." });
     }
 
