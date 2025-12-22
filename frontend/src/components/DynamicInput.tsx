@@ -120,6 +120,11 @@ export function DynamicInput({ label, type, name, register, options, required, r
             if (!files || files.length === 0) return true;
             const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
             return validTypes.includes(files[0]?.type) || "Apenas arquivos PDF, PNG ou JPG são permitidos.";
+          },
+          fileSize: (files: any) => {
+            if (isActuallyReadOnly) return true;
+            if (!files || files.length === 0) return true;
+            return files[0]?.size <= 50 * 1024 * 1024 || "O arquivo deve ter no máximo 50MB.";
           }
         }
       };
@@ -128,7 +133,7 @@ export function DynamicInput({ label, type, name, register, options, required, r
         <div className={`mb-4 p-4 border-2 border-dashed rounded ${isInvalid ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-gray-50'}`}>
           <label className="block mb-1 font-bold text-gray-700 flex items-center">
             {label} {required && <span className="text-red-500 ml-1">*</span>}
-            <span className="text-xs font-normal text-gray-500 ml-2">(Máx: 1MB)</span>
+            <span className="text-xs font-normal text-gray-500 ml-2">(Máx: 50MB)</span>
             <CorrectionButton />
           </label>
           

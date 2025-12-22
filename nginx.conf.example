@@ -2,6 +2,9 @@ server {
     listen 80;
     server_name SEU_DOMINIO_OU_IP;
 
+    # Aumenta o limite de upload para 50MB
+    client_max_body_size 50M;
+
     # Aponta para a pasta de build do Frontend
     root /var/www/html/sistema_onboarding/frontend/dist;
     index index.html;
